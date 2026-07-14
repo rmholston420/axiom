@@ -17,3 +17,6 @@ test:
 
 compose:
 	docker compose up -d
+
+slice2-smoke:
+	poetry run python scripts/research.py "What are the main applications of Tibetan Buddhist philosophy in modern cognitive science?"
