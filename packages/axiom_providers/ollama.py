@@ -12,7 +12,7 @@ class OllamaProvider:
         self._base = settings.axiom_ollama_base_url.rstrip("/")
 
     async def generate(self, model: str, prompt: str, system: str = "") -> str:
-        """Call Ollama's OpenAI-compatible chat completions endpoint and return text."""
+        """Call Ollama native chat endpoint and return assistant text."""
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -25,10 +25,10 @@ class OllamaProvider:
         }
 
         async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(f"{self._base}/v1/chat/completions", json=payload)
+            resp = await client.post(f"{self._base}/api/chat", json=payload)
             resp.raise_for_status()
             data = resp.json()
-            return data["choices"][0]["message"]["content"]
+            return data["message"]["content"]
 
     async def list_models(self) -> list[str]:
         """Return a list of locally available model names."""
