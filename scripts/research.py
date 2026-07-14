@@ -13,11 +13,11 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Ensure repo root is on sys.path so packages/* are importable
+# Ensure monorepo packages/ parent is on sys.path so axiom_* imports resolve
 repo_root = Path(__file__).resolve().parent.parent
-for pkg_dir in (repo_root / "packages").iterdir():
-    if pkg_dir.is_dir():
-        sys.path.insert(0, str(pkg_dir))
+packages_root = repo_root / "packages"
+if str(packages_root) not in sys.path:
+    sys.path.insert(0, str(packages_root))
 
 from dotenv import load_dotenv
 
