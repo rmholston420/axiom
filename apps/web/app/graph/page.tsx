@@ -368,32 +368,42 @@ export default function GraphPage() {
             return neighborIds.has(node.id) ? (node.id === activeId ? 7 : 5) : 2.2;
           }}
           nodeOpacity={0.95}
-          linkWidth={(link: any) => {
-            const sourceId = typeof link.source === "string" ? link.source : link.source.id;
-            const targetId = typeof link.target === "string" ? link.target : link.target.id;
-            const activeId = hoverNodeId ?? selectedNodeId;
-            if (!activeId) return 3.5;
-            return sourceId === activeId || targetId === activeId ? 9 : 1.4;
-          }}
-          linkResolution={10}
           linkColor={(link: any) => {
             const sourceId = typeof link.source === "string" ? link.source : link.source.id;
             const targetId = typeof link.target === "string" ? link.target : link.target.id;
             const activeId = hoverNodeId ?? selectedNodeId;
-            if (!activeId) return "rgba(110,140,170,0.42)";
+            if (!activeId) return "rgba(170,210,255,0.9)";
             return sourceId === activeId || targetId === activeId
-              ? "rgba(255,196,87,1)"
-              : "rgba(90,90,96,0.08)";
+              ? "rgba(255,215,120,1)"
+              : "rgba(120,120,130,0.2)";
+          }}
+          linkCurvature={(link: any) => {
+            const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+            const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            const seed = Array.from(`${sourceId}-${targetId}`).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+            const base = ((seed % 5) - 2) * 0.12;
+            const activeId = hoverNodeId ?? selectedNodeId;
+            if (!activeId) return base;
+            return sourceId === activeId || targetId === activeId ? base * 1.4 : base;
+          }}
+          linkCurveRotation={(link: any) => {
+            const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+            const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            const seed = Array.from(`${targetId}-${sourceId}`).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+            return (seed % 12) * (Math.PI / 6);
           }}
           linkDirectionalParticles={(link: any) => {
             const sourceId = typeof link.source === "string" ? link.source : link.source.id;
             const targetId = typeof link.target === "string" ? link.target : link.target.id;
             const activeId = hoverNodeId ?? selectedNodeId;
-            if (!activeId) return 0;
-            return sourceId === activeId || targetId === activeId ? 4 : 0;
+            if (!activeId) return 1;
+            return sourceId === activeId || targetId === activeId ? 5 : 0;
           }}
           linkDirectionalParticleWidth={4}
-          linkDirectionalParticleColor={() => "#ffc457"}
+          linkDirectionalParticleColor={() => "#ffd778"}
+          linkDirectionalArrowLength={10}
+          linkDirectionalArrowRelPos={1}
+          linkOpacity={1}
         />
       )}
 
