@@ -93,6 +93,19 @@ async function parseJson<T>(res: Response, label: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+function asArray<T>(value: unknown, candidateKeys: string[]): T[] {
+  if (Array.isArray(value)) return value as T[];
+
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    for (const key of candidateKeys) {
+      if (Array.isArray(obj[key])) return obj[key] as T[];
+    }
+  }
+
+  return [];
+}
+
 function mapJob(job: ApiJob): Job {
   return {
     id: job.id,
@@ -129,7 +142,7 @@ function unmapSettings(data: Partial<SettingsData>): Partial<ApiSettings> {
   if (data.depth !== undefined) out.axiom_depth = data.depth;
   if (data.max_results_per_query !== undefined) out.axiom_max_results_per_query = data.max_results_per_query;
   if (data.council_enabled !== undefined) out.axiom_council_enabled = data.council_enabled;
-  if (data.axiomatizer_enabled !== undefined) out.axiom_axiomatizer_enabled = data.axiomatizer_enabled;
+  if (data.axiomatizer_enabled !== undefined) out.axiom_axiomatizer_enabled = data.axiom_axiomatizer_enabled;
   return out;
 }
 
@@ -161,8 +174,11 @@ export async function fetchGraph(): Promise<GraphData> {
     fetch(`${API_BASE}/graph/edges`, { cache: "no-store" }),
   ]);
 
-  const nodesRaw = await parseJson<ApiGraphNode[]>(nodesRes, "fetchGraph nodes");
-  const edgesRaw = await parseJson<ApiGraphEdge[]>(edgesRes, "fetchGraph edges");
+  const nodesPayload = await parseJson<unknown>(nodesRes, "fetchGraph nodes");
+  const edgesPayload = await parseJson<unknown>(edgesRes, "fetchGraph edges");
+
+  const nodesRaw = asArray<ApiGraphNode>(nodesPayload, ["nodes", "items", "data", "results"]);
+  const edgesRaw = asArray<ApiGraphEdge>(edgesPayload, ["edges", "links", "items", "data", "results"]);
 
   const nodes: GraphNode[] = nodesRaw.map((n) => ({
     id: String(n.id),
@@ -174,7 +190,7 @@ export async function fetchGraph(): Promise<GraphData> {
     .map((e) => {
       const source = typeof e.source === "string" ? e.source : e.source?.id;
       const target = typeof e.target === "string" ? e.target : e.target?.id;
-      if (!source || !target) return null
+      if (!source || !target) return null;
       return {
         source: String(source),
         target: String(target),
