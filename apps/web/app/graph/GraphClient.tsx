@@ -135,19 +135,15 @@ export default function GraphClient({
 
   useEffect(() => {
     if (!graphData || !fg3dRef.current) return;
-
     const fg = fg3dRef.current;
-
     try {
       fg.d3Force("link")?.distance?.((link: any) => {
         const sourceId = typeof link.source === "string" ? link.source : link.source.id;
         const targetId = typeof link.target === "string" ? link.target : link.target.id;
         return sourceId === targetId ? 120 : 145;
       });
-
       fg.d3ReheatSimulation();
       setCooldownTicks(undefined);
-
       setTimeout(() => {
         try {
           fg.zoomToFit(800, 80);
@@ -172,63 +168,22 @@ export default function GraphClient({
 
   return (
     <Shell>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "1rem",
-          marginBottom: "1.5rem",
-          flexWrap: "wrap",
-        }}
-      >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text)" }}>
-            Graph
-          </h1>
-
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.25rem",
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-lg)",
-            }}
-          >
-            <button type="button" onClick={() => setMode("2d")} style={toggleButtonStyle(mode === "2d")}>
-              <Box size={14} />
-              2D
-            </button>
-            <button type="button" onClick={() => setMode("3d")} style={toggleButtonStyle(mode === "3d")}>
-              <Orbit size={14} />
-              3D
-            </button>
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text)" }}>Graph</h1>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.25rem", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)" }}>
+            <button type="button" onClick={() => setMode("2d")} style={toggleButtonStyle(mode === "2d")}><Box size={14} />2D</button>
+            <button type="button" onClick={() => setMode("3d")} style={toggleButtonStyle(mode === "3d")}><Orbit size={14} />3D</button>
           </div>
-
           <button
             onClick={load}
             disabled={loading}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              padding: "0.4rem 0.875rem",
-              background: "var(--color-surface)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-md)",
-              color: "var(--color-text-muted)",
-              fontSize: "0.8125rem",
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
+            style={{ display: "flex", alignItems: "center", gap: "0.375rem", padding: "0.4rem 0.875rem", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", color: "var(--color-text-muted)", fontSize: "0.8125rem", cursor: loading ? "not-allowed" : "pointer" }}
           >
             {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
             Refresh
           </button>
         </div>
-
         <div style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)" }}>
           {mode === "2d"
             ? "Drag to pan, scroll to zoom, hover nodes to highlight connected links, click to pin details."
@@ -236,14 +191,7 @@ export default function GraphClient({
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-          gap: "0.75rem",
-          marginBottom: "1rem",
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.75rem", marginBottom: "1rem" }}>
         <div style={{ padding: "0.9rem 1rem", background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)" }}>
           <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Nodes</div>
           <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text)", marginTop: "0.25rem" }}>{graphData?.nodes.length ?? 0}</div>
@@ -265,25 +213,8 @@ export default function GraphClient({
           ["Source", "#da7101"],
           ["Axiom", "#d163a7"],
         ].map(([label, color]) => (
-          <div
-            key={label}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              fontSize: "0.8125rem",
-              color: "var(--color-text-muted)",
-            }}
-          >
-            <span
-              style={{
-                width: "10px",
-                height: "10px",
-                borderRadius: "50%",
-                background: color,
-                display: "inline-block",
-              }}
-            />
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.375rem", fontSize: "0.8125rem", color: "var(--color-text-muted)" }}>
+            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: color, display: "inline-block" }} />
             {label}
           </div>
         ))}
@@ -311,19 +242,16 @@ export default function GraphClient({
             onNodeHover={(node: any) => setHoverNodeId(node?.id ?? null)}
             onNodeClick={(node: any) => setSelectedNodeId(node?.id ?? null)}
             nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-              const label = node.label;
               const isActive = neighborIds.size === 0 || neighborIds.has(node.id);
               const color = nodeColorMap[node.type] ?? "#888";
               const fontSize = Math.max(10, 12 / globalScale);
-
               ctx.beginPath();
               ctx.arc(node.x, node.y, isActive ? 7 : 5.5, 0, 2 * Math.PI, false);
               ctx.fillStyle = isActive ? color : "rgba(148, 163, 184, 0.35)";
               ctx.fill();
-
               ctx.font = `${fontSize}px sans-serif`;
               ctx.fillStyle = isActive ? "#e5e7eb" : "rgba(148, 163, 184, 0.6)";
-              ctx.fillText(label, node.x + 10, node.y + 4);
+              ctx.fillText(node.label, node.x + 10, node.y + 4);
             }}
             linkColor={(link: any) => {
               const sourceId = typeof link.source === "string" ? link.source : link.source.id;
@@ -371,9 +299,7 @@ export default function GraphClient({
           </div>
 
           {axioms.length === 0 ? (
-            <div style={{ padding: "1rem", color: "var(--color-text-muted)" }}>
-              No axioms have been persisted yet.
-            </div>
+            <div style={{ padding: "1rem", color: "var(--color-text-muted)" }}>No axioms have been persisted yet.</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -434,20 +360,12 @@ export default function GraphClient({
           </div>
 
           {!selectedNode ? (
-            <div style={{ padding: "1rem", color: "var(--color-text-muted)" }}>
-              No node selected.
-            </div>
+            <div style={{ padding: "1rem", color: "var(--color-text-muted)" }}>No node selected.</div>
           ) : (
             <div style={{ padding: "1rem" }}>
-              <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--color-text)" }}>
-                {selectedNode.label}
-              </div>
-              <div style={{ marginTop: "0.35rem", fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
-                Type: {selectedNode.type}
-              </div>
-              <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
-                Connected edges
-              </div>
+              <div style={{ fontSize: "1rem", fontWeight: 700, color: "var(--color-text)" }}>{selectedNode.label}</div>
+              <div style={{ marginTop: "0.35rem", fontSize: "0.85rem", color: "var(--color-text-muted)" }}>Type: {selectedNode.type}</div>
+              <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "var(--color-text-muted)" }}>Connected edges</div>
               <div style={{ marginTop: "0.5rem", display: "grid", gap: "0.5rem" }}>
                 {selectedLinks.length === 0 ? (
                   <div style={{ color: "var(--color-text-muted)" }}>No direct connections.</div>
@@ -458,18 +376,8 @@ export default function GraphClient({
                     const otherId = sourceId === selectedNode.id ? targetId : sourceId;
                     const otherNode = graphData?.nodes.find((node) => node.id === otherId);
                     return (
-                      <div
-                        key={link.id}
-                        style={{
-                          padding: "0.65rem 0.75rem",
-                          border: "1px solid var(--color-border)",
-                          borderRadius: "var(--radius-md)",
-                          background: "var(--color-surface-2)",
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, color: "var(--color-text)" }}>
-                          {link.type}
-                        </div>
+                      <div key={link.id} style={{ padding: "0.65rem 0.75rem", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", background: "var(--color-surface-2)" }}>
+                        <div style={{ fontWeight: 600, color: "var(--color-text)" }}>{link.type}</div>
                         <div style={{ marginTop: "0.2rem", fontSize: "0.84rem", color: "var(--color-text-muted)" }}>
                           {otherNode ? `${otherNode.label} (${otherNode.type})` : otherId}
                         </div>
