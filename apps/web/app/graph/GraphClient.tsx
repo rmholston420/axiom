@@ -100,7 +100,6 @@ export default function GraphClient({
       (link) => !nodeIds.has(String(link.source)) || !nodeIds.has(String(link.target)),
     );
     if (missing.length > 0) {
-      console.warn("[graph] Dropped orphan links", missing.slice(0, 10));
     }
   }, [data]);
 

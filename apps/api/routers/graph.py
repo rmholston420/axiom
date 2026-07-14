@@ -40,7 +40,7 @@ NODES_CYPHER = """
 MATCH (n)
 WHERE n:Query OR n:Finding OR n:Source OR n:Axiom
 RETURN
-    toString(id(n)) AS id,
+    coalesce(n.id, n.url, n.label, n.text, n.title) AS id,
     coalesce(n.label, n.statement, n.text, n.title, n.url, labels(n)[0]) AS label,
     labels(n)[0] AS type,
     properties(n) AS props
