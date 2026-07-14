@@ -256,6 +256,8 @@ export default function GraphPage() {
           backgroundColor="#0d0d0f"
           onNodeHover={(node: any) => setHoverNodeId(node?.id ?? null)}
           onNodeClick={(node: any) => setSelectedNodeId(node?.id ?? null)}
+          onBackgroundClick={() => setSelectedNodeId(null)}
+          onBackgroundClick={() => setSelectedNodeId(null)}
           nodeLabel={(node: any) => `${node.type}: ${node.label}`}
           nodeRelSize={6}
           linkWidth={(link: any) => {
@@ -284,11 +286,12 @@ export default function GraphPage() {
           linkDirectionalParticleWidth={4}
           linkDirectionalParticleColor={() => "#ffc457"}
           nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+            const hasFocus = Boolean(hoverNodeId ?? selectedNodeId);
             const isActive = (hoverNodeId ?? selectedNodeId) === node.id;
-            const isNeighbor = !hoverNodeId && !selectedNodeId ? true : neighborIds.has(node.id);
+            const isNeighbor = hasFocus ? neighborIds.has(node.id) : true;
             const label = String(node.label ?? "");
             const color = nodeColorMap[node.type] ?? "#4f98a3";
-            const radius = isActive ? 7 : 5.5;
+            const radius = hasFocus ? (isActive ? 8 : isNeighbor ? 5.75 : 4.1) : (isActive ? 7 : 5.5);
 
             ctx.beginPath();
             ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
@@ -298,7 +301,9 @@ export default function GraphPage() {
             ctx.strokeStyle = isActive ? "#fdab43" : "rgba(255,255,255,0.28)";
             ctx.stroke();
 
-            if (globalScale >= 1.1 || isActive) {
+            const shouldDrawLabel = hasFocus ? isNeighbor : globalScale >= 1.1 || isActive;
+
+            if (shouldDrawLabel) {
               const fontSize = Math.max(10, 14 / globalScale);
               ctx.font = `${fontSize}px Inter, sans-serif`;
               ctx.textAlign = "left";
@@ -309,10 +314,10 @@ export default function GraphPage() {
               const x = node.x + 10;
               const y = node.y;
 
-              ctx.fillStyle = isNeighbor ? "rgba(13,13,15,0.88)" : "rgba(13,13,15,0.38)";
+              ctx.fillStyle = "rgba(13,13,15,0.9)";
               ctx.fillRect(x - padX, y - fontSize / 2 - padY, textWidth + padX * 2, fontSize + padY * 2);
 
-              ctx.fillStyle = isNeighbor ? "#f5f5f5" : "rgba(245,245,245,0.42)";
+              ctx.fillStyle = "#f5f5f5";
               ctx.fillText(label, x, y);
             }
           }}
@@ -329,8 +334,15 @@ export default function GraphPage() {
           backgroundColor="#09090b"
           onNodeHover={(node: any) => setHoverNodeId(node?.id ?? null)}
           onNodeClick={(node: any) => setSelectedNodeId(node?.id ?? null)}
+          onBackgroundClick={() => setSelectedNodeId(null)}
           nodeLabel={(node: any) => `${node.type}: ${node.label}`}
           nodeAutoColorBy="type"
+          nodeVal={(node: any) => {
+            const activeId = hoverNodeId ?? selectedNodeId;
+            if (!activeId) return 5;
+            return neighborIds.has(node.id) ? (node.id === activeId ? 7 : 5) : 2.2;
+          }}
+          nodeOpacity={0.95}
           linkWidth={(link: any) => {
             const sourceId = typeof link.source === "string" ? link.source : link.source.id;
             const targetId = typeof link.target === "string" ? link.target : link.target.id;
