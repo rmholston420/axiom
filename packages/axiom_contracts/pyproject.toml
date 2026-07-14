@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axiom-contracts"
+version = "0.1.0"
+description = "Contracts and shared interfaces for Axiom"
+authors = [{ name = "rmholston" }]
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools]
+packages = ["axiom_contracts"]
+
+[tool.setuptools.package-dir]
+axiom_contracts = "."

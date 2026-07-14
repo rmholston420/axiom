@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axiom-graph"
+version = "0.1.0"
+description = "Graph repository and schema layer for Axiom"
+authors = [{ name = "rmholston" }]
+requires-python = ">=3.10"
+dependencies = [
+  "neo4j>=5.0.0",
+  "pydantic>=2.0.0",
+]
+
+[tool.setuptools]
+packages = ["axiom_graph"]
+
+[tool.setuptools.package-dir]
+axiom_graph = "."

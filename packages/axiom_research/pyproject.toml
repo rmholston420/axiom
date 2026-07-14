@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axiom-research"
+version = "0.1.0"
+description = "Research loop, retriever, and synthesizer for Axiom"
+authors = [{ name = "rmholston" }]
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic>=2.0.0",
+  "httpx>=0.27.0",
+  "redis>=5.0.0",
+]
+
+[tool.setuptools]
+packages = ["axiom_research"]
+
+[tool.setuptools.package-dir]
+axiom_research = "."

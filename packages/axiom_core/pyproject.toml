@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "axiom-core"
+version = "0.1.0"
+description = "Core domain models and settings for Axiom"
+authors = [{ name = "rmholston" }]
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic>=2.0.0",
+  "pydantic-settings>=2.0.0",
+]
+
+[tool.setuptools]
+packages = ["axiom_core"]
+
+[tool.setuptools.package-dir]
+axiom_core = "."
