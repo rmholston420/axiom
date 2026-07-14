@@ -347,8 +347,8 @@ export default function GraphPage() {
             const sourceId = typeof link.source === "string" ? link.source : link.source.id;
             const targetId = typeof link.target === "string" ? link.target : link.target.id;
             const activeId = hoverNodeId ?? selectedNodeId;
-            if (!activeId) return 1.25;
-            return sourceId === activeId || targetId === activeId ? 5 : 0.3;
+            if (!activeId) return 2.4;
+            return sourceId === activeId || targetId === activeId ? 7 : 0.9;
           }}
           linkColor={(link: any) => {
             const sourceId = typeof link.source === "string" ? link.source : link.source.id;
