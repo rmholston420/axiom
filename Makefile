@@ -17,27 +17,13 @@ install-packages:
 		pip install -e packages/axiom_providers && \
 		pip install -e packages/axiom_research
 
-
 venv:
 	$(PYTHON) -m venv $(VENV_DIR)
 	. $(VENV_BIN)/activate && \
 		python -m pip install --upgrade pip wheel setuptools && \
-		python -m pip install \
-			fastapi \
-			"uvicorn[standard]" \
-			httpx \
-			neo4j \
-			httpx \
-			redis \
-			pydantic \
-			pydantic-settings \
-			pytest \
-			pytest-asyncio \
-			ruff
+		python -m pip install fastapi "uvicorn[standard]" httpx neo4j redis pydantic pydantic-settings pytest pytest-asyncio ruff
 
 install: venv
-
-# --- Axiom API ---
 
 api-stop:
 	-pkill -f 'python -m uvicorn apps.api.main:app' || true
@@ -58,8 +44,6 @@ api-restart: api-stop
 health:
 	curl -sS http://localhost:$(PORT)/health | python3 -m json.tool
 
-# --- Axiom Council ---
-
 council-stop:
 	-pkill -f 'uvicorn apps.council.main:app' || true
 
@@ -78,10 +62,9 @@ council-restart: council-stop
 council-health:
 	curl -sS http://localhost:$(COUNCIL_PORT)/health | python3 -m json.tool
 
-# --- Axiom Axiomatizer ---
-
 axiomatizer-stop:
 	-pkill -f 'uvicorn apps.axiomatizer.main:app' || true
+	-pkill -f 'python -m uvicorn apps.axiomatizer.main:app' || true
 
 axiomatizer:
 	. $(VENV_BIN)/activate && \
@@ -97,8 +80,6 @@ axiomatizer-restart: axiomatizer-stop
 
 axiomatizer-health:
 	curl -sS http://localhost:$(AXIOMATIZER_PORT)/health | python3 -m json.tool
-
-# --- Shared ---
 
 lint:
 	. $(VENV_BIN)/activate && \

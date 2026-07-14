@@ -5,9 +5,7 @@ from neo4j import AsyncDriver
 
 
 async def ensure_schema(driver: AsyncDriver) -> None:
-    """Create uniqueness constraints and indexes if they do not exist yet."""
     stmts = [
-        # --- Pre-existing ---
         """
         CREATE CONSTRAINT query_id_unique IF NOT EXISTS
         FOR (q:Query) REQUIRE q.id IS UNIQUE
@@ -28,7 +26,6 @@ async def ensure_schema(driver: AsyncDriver) -> None:
         CREATE INDEX finding_created_index IF NOT EXISTS
         FOR (f:Finding) ON (f.created_at)
         """,
-        # --- Slice 6: Axiom ---
         """
         CREATE CONSTRAINT axiom_id_unique IF NOT EXISTS
         FOR (a:Axiom) REQUIRE a.id IS UNIQUE
