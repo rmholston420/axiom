@@ -1,4 +1,4 @@
-"""Neo4j repository — CRUD for Query, Finding, and Source nodes."""
+"""Neo4j repository — CRUD for Query, Finding, Source, and Axiom nodes."""
 from __future__ import annotations
 
 import uuid
@@ -93,7 +93,6 @@ class GraphRepository:
                 summary=summary,
                 created_at=_now(),
             )
-            # Link to each source
             for url in source_urls:
                 await session.run(
                     """
@@ -107,7 +106,76 @@ class GraphRepository:
         return fid
 
     # ------------------------------------------------------------------
-    # Read helpers
+    # Axiom nodes  (Slice 6)
+    # ------------------------------------------------------------------
+
+    async def create_axiom(
+        self,
+        axiom_id: str,
+        label: str,
+        statement: str,
+        justification: str,
+        confidence: float,
+        approved: bool = True,
+        eval_reason: str = "",
+    ) -> str:
+        """Persist an Axiom node (MERGE on id — idempotent). Returns axiom_id."""
+        cypher = """
+        MERGE (a:Axiom {id: $id})
+        ON CREATE SET
+            a.label         = $label,
+            a.statement     = $statement,
+            a.justification = $justification,
+            a.confidence    = $confidence,
+            a.approved      = $approved,
+            a.eval_reason   = $eval_reason,
+            a.created_at    = $created_at
+        ON MATCH SET
+            a.statement     = $statement,
+            a.justification = $justification,
+            a.confidence    = $confidence,
+            a.approved      = $approved,
+            a.eval_reason   = $eval_reason
+        RETURN a.id AS id
+        """
+        async with self._driver.session() as session:
+            await session.run(
+                cypher,
+                id=axiom_id,
+                label=label,
+                statement=statement,
+                justification=justification,
+                confidence=float(confidence),
+                approved=approved,
+                eval_reason=eval_reason,
+                created_at=_now(),
+            )
+        return axiom_id
+
+    async def get_axiom(self, axiom_id: str) -> dict[str, Any] | None:
+        """Fetch a single Axiom node by id."""
+        cypher = "MATCH (a:Axiom {id: $id}) RETURN a"
+        async with self._driver.session() as session:
+            result = await session.run(cypher, id=axiom_id)
+            record = await result.single()
+            if record is None:
+                return None
+            return dict(record["a"])
+
+    async def list_axioms(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Return up to `limit` Axiom nodes ordered newest-first."""
+        cypher = """
+        MATCH (a:Axiom)
+        RETURN a
+        ORDER BY a.created_at DESC
+        LIMIT $limit
+        """
+        async with self._driver.session() as session:
+            result = await session.run(cypher, limit=limit)
+            return [dict(r["a"]) async for r in result]
+
+    # ------------------------------------------------------------------
+    # Read helpers (pre-existing)
     # ------------------------------------------------------------------
 
     async def get_query(self, query_id: str) -> dict[str, Any] | None:

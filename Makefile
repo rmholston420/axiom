@@ -3,9 +3,11 @@ VENV_DIR := .venv
 VENV_BIN := $(VENV_DIR)/bin
 PORT ?= 7200
 COUNCIL_PORT ?= 7201
+AXIOMATIZER_PORT ?= 7202
 
-.PHONY: venv install api api-dev api-stop api-restart health lint test \
-        council council-dev council-stop council-restart council-health
+.PHONY: venv install install-packages api api-dev api-stop api-restart health lint test \
+        council council-dev council-stop council-restart council-health \
+        axiomatizer axiomatizer-dev axiomatizer-stop axiomatizer-restart axiomatizer-health
 
 install-packages:
 	. $(VENV_BIN)/activate && \
@@ -75,6 +77,26 @@ council-restart: council-stop
 
 council-health:
 	curl -sS http://localhost:$(COUNCIL_PORT)/health | python3 -m json.tool
+
+# --- Axiom Axiomatizer ---
+
+axiomatizer-stop:
+	-pkill -f 'uvicorn apps.axiomatizer.main:app' || true
+
+axiomatizer:
+	. $(VENV_BIN)/activate && \
+	python -m uvicorn apps.axiomatizer.main:app --host 0.0.0.0 --port $(AXIOMATIZER_PORT)
+
+axiomatizer-dev:
+	. $(VENV_BIN)/activate && \
+	python -m uvicorn apps.axiomatizer.main:app --host 0.0.0.0 --port $(AXIOMATIZER_PORT) --reload
+
+axiomatizer-restart: axiomatizer-stop
+	@sleep 1
+	@$(MAKE) axiomatizer
+
+axiomatizer-health:
+	curl -sS http://localhost:$(AXIOMATIZER_PORT)/health | python3 -m json.tool
 
 # --- Shared ---
 
