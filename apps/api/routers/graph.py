@@ -31,50 +31,54 @@ class GraphEdgesResponse(BaseModel):
     edges: list[GraphEdge]
 
 
-@router.get("/nodes", response_model=GraphNodesResponse)
-async def get_nodes(driver: AsyncDriver = Depends(get_driver)):
-    """Return all Query, Finding, and Source nodes."""
-    cypher = """
-    MATCH (n)
-    WHERE n:Query OR n:Finding OR n:Source
-    RETURN
-        toString(id(n))        AS id,
-        labels(n)[0]           AS label,
-        labels(n)[0]           AS type,
-        properties(n)          AS props
-    LIMIT 500
-    """
+class GraphResponse(BaseModel):
+    nodes: list[GraphNode]
+    links: list[GraphEdge]
+
+
+NODES_CYPHER = """
+MATCH (n)
+WHERE n:Query OR n:Finding OR n:Source
+RETURN
+    toString(id(n)) AS id,
+    coalesce(n.text, n.title, n.url, labels(n)[0]) AS label,
+    labels(n)[0] AS type,
+    properties(n) AS props
+LIMIT 500
+"""
+
+EDGES_CYPHER = """
+MATCH (a)-[r]->(b)
+WHERE (a:Query OR a:Finding OR a:Source)
+  AND (b:Query OR b:Finding OR b:Source)
+RETURN
+    toString(id(a)) AS source,
+    toString(id(b)) AS target,
+    type(r) AS type
+LIMIT 2000
+"""
+
+
+async def _load_nodes(driver: AsyncDriver) -> list[GraphNode]:
     nodes: list[GraphNode] = []
     async with driver.session() as session:
-        result = await session.run(cypher)
+        result = await session.run(NODES_CYPHER)
         async for record in result:
             nodes.append(
                 GraphNode(
                     id=record["id"],
-                    label=record["label"],
+                    label=str(record["label"]),
                     type=record["type"],
                     properties=dict(record["props"]),
                 )
             )
-    return GraphNodesResponse(nodes=nodes)
+    return nodes
 
 
-@router.get("/edges", response_model=GraphEdgesResponse)
-async def get_edges(driver: AsyncDriver = Depends(get_driver)):
-    """Return all relationships between Query/Finding/Source nodes."""
-    cypher = """
-    MATCH (a)-[r]->(b)
-    WHERE (a:Query OR a:Finding OR a:Source)
-      AND (b:Query OR b:Finding OR b:Source)
-    RETURN
-        toString(id(a)) AS source,
-        toString(id(b)) AS target,
-        type(r)         AS type
-    LIMIT 2000
-    """
+async def _load_edges(driver: AsyncDriver) -> list[GraphEdge]:
     edges: list[GraphEdge] = []
     async with driver.session() as session:
-        result = await session.run(cypher)
+        result = await session.run(EDGES_CYPHER)
         async for record in result:
             edges.append(
                 GraphEdge(
@@ -83,4 +87,24 @@ async def get_edges(driver: AsyncDriver = Depends(get_driver)):
                     type=record["type"],
                 )
             )
-    return GraphEdgesResponse(edges=edges)
+    return edges
+
+
+@router.get("", response_model=GraphResponse)
+async def get_graph(driver: AsyncDriver = Depends(get_driver)):
+    """Return combined graph payload for the web UI: {nodes, links}."""
+    nodes = await _load_nodes(driver)
+    edges = await _load_edges(driver)
+    return GraphResponse(nodes=nodes, links=edges)
+
+
+@router.get("/nodes", response_model=GraphNodesResponse)
+async def get_nodes(driver: AsyncDriver = Depends(get_driver)):
+    """Return all Query, Finding, and Source nodes."""
+    return GraphNodesResponse(nodes=await _load_nodes(driver))
+
+
+@router.get("/edges", response_model=GraphEdgesResponse)
+async def get_edges(driver: AsyncDriver = Depends(get_driver)):
+    """Return all relationships between Query/Finding/Source nodes."""
+    return GraphEdgesResponse(edges=await _load_edges(driver))
