@@ -30,15 +30,18 @@ export interface GraphData {
 }
 
 export interface SettingsData {
-  model_planner: string;
-  model_synthesizer: string;
-  model_code: string;
-  model_critic: string;
-  breadth: number;
-  depth: number;
-  max_results_per_query: number;
-  council_enabled: boolean;
-  axiomatizer_enabled: boolean;
+  axiom_model_planner: string;
+  axiom_model_synthesizer: string;
+  axiom_model_code: string;
+  axiom_model_critic: string;
+  axiom_model_chairman: string;
+  axiom_model_axiomatizer: string;
+  axiom_breadth: number;
+  axiom_depth: number;
+  axiom_max_results_per_query: number;
+  axiom_council_size: number;
+  axiom_council_enabled: boolean;
+  axiom_axiomatizer_enabled: boolean;
 }
 
 async function sleep(ms: number) {
@@ -85,7 +88,7 @@ export async function fetchJob(id: string): Promise<Job> {
 export async function createJob(query: string): Promise<Job> {
   return getJson<Job>(`${API_BASE}/jobs`, {
     method: "POST",
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ question: query }),
   }, 1);
 }
 
