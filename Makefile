@@ -28,6 +28,7 @@ install: venv
 api-stop:
 	-pkill -f 'python -m uvicorn apps.api.main:app' || true
 	-pkill -f 'uvicorn apps.api.main:app' || true
+	-fuser -k $(PORT)/tcp || true
 
 api:
 	. $(VENV_BIN)/activate && \
@@ -45,7 +46,9 @@ health:
 	curl -sS http://localhost:$(PORT)/health | python3 -m json.tool
 
 council-stop:
+	-pkill -f 'python -m uvicorn apps.council.main:app' || true
 	-pkill -f 'uvicorn apps.council.main:app' || true
+	-fuser -k $(COUNCIL_PORT)/tcp || true
 
 council:
 	. $(VENV_BIN)/activate && \
@@ -63,8 +66,9 @@ council-health:
 	curl -sS http://localhost:$(COUNCIL_PORT)/health | python3 -m json.tool
 
 axiomatizer-stop:
-	-pkill -f 'uvicorn apps.axiomatizer.main:app' || true
 	-pkill -f 'python -m uvicorn apps.axiomatizer.main:app' || true
+	-pkill -f 'uvicorn apps.axiomatizer.main:app' || true
+	-fuser -k $(AXIOMATIZER_PORT)/tcp || true
 
 axiomatizer:
 	. $(VENV_BIN)/activate && \
