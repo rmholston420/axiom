@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from redis.exceptions import ConnectionError
 
 from apps.api.dependencies import get_job_store, get_worker
 from axiom_research.queue_worker import JobStore, QueueWorker
@@ -39,7 +40,10 @@ async def create_job(
 @router.get("", response_model=list[JobResponse])
 async def list_jobs(store: JobStore = Depends(get_job_store)):
     """Return all jobs, newest first."""
-    return await store.list_all()
+    try:
+        return await store.list_all()
+    except ConnectionError:
+        return []
 
 
 @router.get("/{job_id}", response_model=JobResponse)
