@@ -1,0 +1,89 @@
+{
+  "nodes": [
+    {
+      "id": "103",
+      "label": "Explain the two truths doctrine in Madhyamaka.",
+      "type": "Query",
+      "properties": {
+        "job_id": "2140c304-5afc-4380-a3b2-adefb8264a5d",
+        "created_at": "2026-07-14T14:14:24.612053+00:00",
+        "text": "Explain the two truths doctrine in Madhyamaka.",
+        "id": "d59f6398-8ced-43d3-bb3b-47aa0ea98b92"
+      }
+    },
+    {
+      "id": "104",
+      "label": "https://en.wikipedia.org › wiki › Two_truths_doctrine",
+      "type": "Source",
+      "properties": {
+        "created_at": "2026-07-14T14:14:28.037700+00:00",
+        "title": "https://en.wikipedia.org › wiki › Two_truths_doctrine",
+        "url": "https://en.wikipedia.org/wiki/Two_truths_doctrine"
+      }
+    },
+    {
+      "id": "106",
+      "label": "https://plato.stanford.edu › entries › twotruths-india",
+      "type": "Source",
+      "properties": {
+        "created_at": "2026-07-14T14:14:28.046007+00:00",
+        "title": "https://plato.stanford.edu › entries › twotruths-india",
+        "url": "https://plato.stanford.edu/entries/twotruths-india/"
+      }
+    },
+    {
+      "id": "109",
+      "label": "Finding",
+      "type": "Finding",
+      "properties": {
+        "summary": "The Two Truths Doctrine in Mahayana Buddhism posits two levels of satya: the conventional or provisional truth, which refers to the world as it appears to us, and the absolute or ultimate truth, which reveals the deeper, interconnected nature of existence.",
+        "created_at": "2026-07-14T14:14:28.665253+00:00",
+        "id": "162f5e93-0afc-4be6-a983-9ab24959aaa7",
+        "sub_query": "what is the two truths doctrine in Mahayana Buddhism"
+      }
+    },
+    {
+      "id": "112",
+      "label": "Finding",
+      "type": "Finding",
+      "properties": {
+        "summary": "The two truths doctrine, central to Madhyamaka philosophy, posits two concurrent perspectives: the conventional truth, the world as experienced in everyday life, and the ultimate truth, reality as it is.",
+        "created_at": "2026-07-14T14:14:30.411317+00:00",
+        "id": "e5763a53-1843-445a-add0-9c06e7ca9d52",
+        "sub_query": "two truths doctrine Madhyamaka explanation"
+      }
+    }
+  ],
+  "links": [
+    {
+      "source": "103",
+      "target": "109",
+      "type": "HAS_FINDING"
+    },
+    {
+      "source": "103",
+      "target": "112",
+      "type": "HAS_FINDING"
+    },
+    {
+      "source": "109",
+      "target": "104",
+      "type": "CITES"
+    },
+    {
+      "source": "109",
+      "target": "106",
+      "type": "CITES"
+    },
+    {
+      "source": "112",
+      "target": "104",
+      "type": "CITES"
+    },
+    {
+      "source": "112",
+      "target": "106",
+      "type": "CITES"
+    }
+  ]
+}
