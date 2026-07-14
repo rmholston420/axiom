@@ -154,7 +154,10 @@ export default function GraphPage() {
               nodeId="id"
               linkSource="source"
               linkTarget="target"
-              nodeLabel={(node) => `${(node as FGNode).type}: ${(node as FGNode).label}`}
+              nodeLabel={(node) => {
+                const n = node as FGNode;
+                return `${n.label}\nSchema: ${n.type}`;
+              }}
               nodeColor={(node) => nodeColor(node as FGNode)}
               linkColor={() => "#2a2a2e"}
               linkDirectionalArrowLength={4}

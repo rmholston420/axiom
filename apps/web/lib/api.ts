@@ -24,9 +24,15 @@ export interface Job {
 
 type ApiGraphNode = {
   id: string;
-  label?: string;
   type?: string;
+  label?: string;
   name?: string;
+  title?: string;
+  question?: string;
+  summary?: string;
+  text?: string;
+  url?: string;
+  properties?: Record<string, unknown>;
 };
 
 type ApiGraphEdge = {
@@ -40,6 +46,7 @@ export interface GraphNode {
   id: string;
   label: string;
   type: string;
+  raw?: Record<string, unknown>;
 }
 
 export interface GraphLink {
@@ -104,6 +111,78 @@ function asArray<T>(value: unknown, candidateKeys: string[]): T[] {
   }
 
   return [];
+}
+
+function truncate(value: string, max = 72): string {
+  const s = value.replace(/\s+/g, " ").trim();
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+function hostnameFromUrl(value: string): string | null {
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function fallbackLabel(nodeType: string): string {
+  const t = nodeType.toLowerCase();
+  if (t === "query") return "Research question";
+  if (t === "finding") return "Finding";
+  if (t === "source") return "Source";
+  return "Graph node";
+}
+
+function graphNodeLabel(node: ApiGraphNode): string {
+  const props = node.properties ?? {};
+  const nodeType = String(node.type ?? props.type ?? "Node");
+
+  const directQuestion =
+    node.question ??
+    (typeof props.question === "string" ? props.question : undefined);
+
+  const directTitle =
+    node.title ??
+    (typeof props.title === "string" ? props.title : undefined);
+
+  const directSummary =
+    node.summary ??
+    (typeof props.summary === "string" ? props.summary : undefined);
+
+  const directText =
+    node.text ??
+    (typeof props.text === "string" ? props.text : undefined);
+
+  const directName =
+    node.name ??
+    (typeof props.name === "string" ? props.name : undefined);
+
+  const directLabel =
+    node.label ??
+    (typeof props.label === "string" ? props.label : undefined);
+
+  const directUrl =
+    node.url ??
+    (typeof props.url === "string" ? props.url : undefined);
+
+  if (nodeType.toLowerCase() === "query") {
+    const q = directQuestion || directTitle || directText;
+    return truncate(q || fallbackLabel(nodeType), 88);
+  }
+
+  if (nodeType.toLowerCase() === "source") {
+    const sourceLabel = directTitle || directName || (directUrl ? hostnameFromUrl(directUrl) : null) || directUrl;
+    return truncate(sourceLabel || fallbackLabel(nodeType), 72);
+  }
+
+  if (nodeType.toLowerCase() === "finding") {
+    const findingLabel = directSummary || directText || directTitle || directLabel || directName;
+    return truncate(findingLabel || fallbackLabel(nodeType), 88);
+  }
+
+  const generic = directTitle || directName || directLabel || directSummary || directText || directQuestion || directUrl || node.id;
+  return truncate(generic || fallbackLabel(nodeType), 72);
 }
 
 function mapJob(job: ApiJob): Job {
@@ -182,8 +261,9 @@ export async function fetchGraph(): Promise<GraphData> {
 
   const nodes: GraphNode[] = nodesRaw.map((n) => ({
     id: String(n.id),
-    label: String(n.label ?? n.name ?? n.id),
-    type: String(n.type ?? "Node"),
+    label: graphNodeLabel(n),
+    type: String(n.type ?? (n.properties?.type as string | undefined) ?? "Node"),
+    raw: (n.properties ?? n) as Record<string, unknown>,
   }));
 
   const links: GraphLink[] = edgesRaw
