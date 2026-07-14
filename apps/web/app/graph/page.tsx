@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Shell from "@/components/Shell";
 import { fetchGraph, type GraphData } from "@/lib/api";
 import { RefreshCw, Loader2, Box, Orbit } from "lucide-react";
@@ -26,8 +26,8 @@ type GraphNode = {
 
 type GraphLink = {
   id: string;
-  source: string;
-  target: string;
+  source: string | GraphNode;
+  target: string | GraphNode;
   type: string;
 };
 
@@ -36,6 +36,10 @@ export default function GraphPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<GraphMode>("2d");
+  const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const fg2dRef = useRef<any>(null);
+  const fg3dRef = useRef<any>(null);
 
   const load = async () => {
     setLoading(true);
@@ -78,6 +82,35 @@ export default function GraphPage() {
 
     return { nodes, links };
   }, [data]);
+
+  const neighborIds = useMemo(() => {
+    const activeId = hoverNodeId ?? selectedNodeId;
+    const set = new Set<string>();
+    if (!graphData || !activeId) return set;
+
+    set.add(activeId);
+    for (const link of graphData.links) {
+      const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+      const targetId = typeof link.target === "string" ? link.target : link.target.id;
+      if (sourceId === activeId) set.add(targetId);
+      if (targetId === activeId) set.add(sourceId);
+    }
+    return set;
+  }, [graphData, hoverNodeId, selectedNodeId]);
+
+  const selectedNode = useMemo(() => {
+    if (!graphData || !selectedNodeId) return null;
+    return graphData.nodes.find((node) => node.id === selectedNodeId) ?? null;
+  }, [graphData, selectedNodeId]);
+
+  const selectedLinks = useMemo(() => {
+    if (!graphData || !selectedNodeId) return [];
+    return graphData.links.filter((link) => {
+      const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+      const targetId = typeof link.target === "string" ? link.target : link.target.id;
+      return sourceId === selectedNodeId || targetId === selectedNodeId;
+    });
+  }, [graphData, selectedNodeId]);
 
   const toggleButtonStyle = (active: boolean): React.CSSProperties => ({
     display: "inline-flex",
@@ -161,7 +194,9 @@ export default function GraphPage() {
         </div>
 
         <div style={{ fontSize: "0.8125rem", color: "var(--color-text-muted)" }}>
-          {mode === "2d" ? "Drag to pan, scroll to zoom." : "Drag to orbit, scroll to zoom."}
+          {mode === "2d"
+          ? "Drag to pan, scroll to zoom, hover nodes to highlight connected links, click to pin details."
+          : "Drag to orbit, scroll to zoom, hover nodes to highlight connected links, click to pin details."}
         </div>
       </div>
 
@@ -212,43 +247,117 @@ export default function GraphPage() {
         }}
       >
         {graphData && mode === "2d" && (
-          <ForceGraph2D
-            graphData={graphData}
-            nodeId="id"
-            linkSource="source"
-            linkTarget="target"
-            backgroundColor="#0d0d0f"
-            nodeLabel="label"
-            nodeColor={(node) =>
-              nodeColorMap[String((node as { type?: unknown })?.type ?? "")] ?? "#7a7a82"
+        <ForceGraph2D
+          ref={fg2dRef}
+          graphData={graphData}
+          nodeId="id"
+          linkSource="source"
+          linkTarget="target"
+          backgroundColor="#0d0d0f"
+          onNodeHover={(node: any) => setHoverNodeId(node?.id ?? null)}
+          onNodeClick={(node: any) => setSelectedNodeId(node?.id ?? null)}
+          nodeLabel={(node: any) => `${node.type}: ${node.label}`}
+          nodeRelSize={6}
+          linkWidth={(link: any) => {
+            const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+            const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            const activeId = hoverNodeId ?? selectedNodeId;
+            if (!activeId) return 1.8;
+            return sourceId === activeId || targetId === activeId ? 6 : 0.45;
+          }}
+          linkColor={(link: any) => {
+            const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+            const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            const activeId = hoverNodeId ?? selectedNodeId;
+            if (!activeId) return "rgba(110,140,170,0.42)";
+            return sourceId === activeId || targetId === activeId
+              ? "rgba(255,196,87,1)"
+              : "rgba(90,90,96,0.08)";
+          }}
+          linkDirectionalParticles={(link: any) => {
+            const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+            const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            const activeId = hoverNodeId ?? selectedNodeId;
+            if (!activeId) return 0;
+            return sourceId === activeId || targetId === activeId ? 4 : 0;
+          }}
+          linkDirectionalParticleWidth={4}
+          linkDirectionalParticleColor={() => "#ffc457"}
+          nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
+            const isActive = (hoverNodeId ?? selectedNodeId) === node.id;
+            const isNeighbor = !hoverNodeId && !selectedNodeId ? true : neighborIds.has(node.id);
+            const label = String(node.label ?? "");
+            const color = nodeColorMap[node.type] ?? "#4f98a3";
+            const radius = isActive ? 7 : 5.5;
+
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+            ctx.fillStyle = isNeighbor ? color : "rgba(100,100,100,0.35)";
+            ctx.fill();
+            ctx.lineWidth = isActive ? 2 : 1;
+            ctx.strokeStyle = isActive ? "#fdab43" : "rgba(255,255,255,0.28)";
+            ctx.stroke();
+
+            if (globalScale >= 1.1 || isActive) {
+              const fontSize = Math.max(10, 14 / globalScale);
+              ctx.font = `${fontSize}px Inter, sans-serif`;
+              ctx.textAlign = "left";
+              ctx.textBaseline = "middle";
+              const textWidth = ctx.measureText(label).width;
+              const padX = 6 / globalScale;
+              const padY = 3 / globalScale;
+              const x = node.x + 10;
+              const y = node.y;
+
+              ctx.fillStyle = isNeighbor ? "rgba(13,13,15,0.88)" : "rgba(13,13,15,0.38)";
+              ctx.fillRect(x - padX, y - fontSize / 2 - padY, textWidth + padX * 2, fontSize + padY * 2);
+
+              ctx.fillStyle = isNeighbor ? "#f5f5f5" : "rgba(245,245,245,0.42)";
+              ctx.fillText(label, x, y);
             }
-            linkColor={() => "#2a2a2e"}
-            nodeRelSize={6}
-            linkDirectionalArrowLength={4}
-            linkDirectionalArrowRelPos={1}
-          />
-        )}
+          }}
+        />
+      )}
 
         {graphData && mode === "3d" && (
-          <ForceGraph3D
-            graphData={graphData}
-            nodeId="id"
-            linkSource="source"
-            linkTarget="target"
-            backgroundColor="#09090b"
-            nodeLabel="label"
-            nodeColor={(node) =>
-              nodeColorMap[String((node as { type?: unknown })?.type ?? "")] ?? "#7a7a82"
-            }
-            linkColor={() => "#3a3a40"}
-            linkOpacity={0.45}
-            nodeRelSize={5}
-            linkDirectionalArrowLength={3.5}
-            linkDirectionalArrowRelPos={1}
-            enableNodeDrag
-            showNavInfo={false}
-          />
-        )}
+        <ForceGraph3D
+          ref={fg3dRef}
+          graphData={graphData}
+          nodeId="id"
+          linkSource="source"
+          linkTarget="target"
+          backgroundColor="#09090b"
+          onNodeHover={(node: any) => setHoverNodeId(node?.id ?? null)}
+          onNodeClick={(node: any) => setSelectedNodeId(node?.id ?? null)}
+          nodeLabel={(node: any) => `${node.type}: ${node.label}`}
+          nodeAutoColorBy="type"
+          linkWidth={(link: any) => {
+            const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+            const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            const activeId = hoverNodeId ?? selectedNodeId;
+            if (!activeId) return 1.25;
+            return sourceId === activeId || targetId === activeId ? 5 : 0.3;
+          }}
+          linkColor={(link: any) => {
+            const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+            const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            const activeId = hoverNodeId ?? selectedNodeId;
+            if (!activeId) return "rgba(110,140,170,0.42)";
+            return sourceId === activeId || targetId === activeId
+              ? "rgba(255,196,87,1)"
+              : "rgba(90,90,96,0.08)";
+          }}
+          linkDirectionalParticles={(link: any) => {
+            const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+            const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            const activeId = hoverNodeId ?? selectedNodeId;
+            if (!activeId) return 0;
+            return sourceId === activeId || targetId === activeId ? 4 : 0;
+          }}
+          linkDirectionalParticleWidth={4}
+          linkDirectionalParticleColor={() => "#ffc457"}
+        />
+      )}
 
         {loading && !graphData && (
           <div
