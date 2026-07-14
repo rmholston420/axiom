@@ -1,27 +1,55 @@
-.PHONY: slice2-smoke slice2-quick
-.PHONY: install dev lint test compose
+PYTHON := python3
+VENV_DIR := .venv
+VENV_BIN := $(VENV_DIR)/bin
+PORT ?= 7200
 
-install:
-	python3 -m venv .venv
-	.venv/bin/pip install --upgrade pip
-	.venv/bin/pip install poetry
-	.venv/bin/poetry install
+export PYTHONPATH := $(PWD)/packages:$(PWD)
 
-dev:
-	.venv/bin/uvicorn apps.api.main:app --reload --port 7200
+.PHONY: venv install api api-dev api-stop api-restart health lint test
+
+venv:
+	$(PYTHON) -m venv $(VENV_DIR)
+	. $(VENV_BIN)/activate && \
+		python -m pip install --upgrade pip wheel setuptools && \
+		python -m pip install \
+			fastapi \
+			"uvicorn[standard]" \
+			neo4j \
+			httpx \
+			redis \
+			pydantic \
+			pydantic-settings \
+			pytest \
+			pytest-asyncio \
+			ruff
+
+install: venv
+
+api-stop:
+	-pkill -f 'python -m uvicorn apps.api.main:app' || true
+	-pkill -f 'uvicorn apps.api.main:app' || true
+
+api:
+	. $(VENV_BIN)/activate && \
+	PYTHONPATH="$(PYTHONPATH)" \
+	python -m uvicorn apps.api.main:app --host 0.0.0.0 --port $(PORT)
+
+api-dev:
+	. $(VENV_BIN)/activate && \
+	PYTHONPATH="$(PYTHONPATH)" \
+	python -m uvicorn apps.api.main:app --host 0.0.0.0 --port $(PORT) --reload
+
+api-restart: api-stop
+	@sleep 1
+	@$(MAKE) api
+
+health:
+	curl -sS http://localhost:$(PORT)/health | python3 -m json.tool
 
 lint:
-	.venv/bin/ruff check packages/ apps/api/
+	. $(VENV_BIN)/activate && \
+	python -m ruff check apps packages
 
 test:
-	.venv/bin/pytest tests/
-
-compose:
-	docker compose up -d
-
-slice2-smoke:
-	poetry run python scripts/research.py "What are the main applications of Tibetan Buddhist philosophy in modern cognitive science?"
-
-slice2-quick:
-	poetry run python scripts/research.py "What is mindfulness?"
-
+	. $(VENV_BIN)/activate && \
+	pytest
