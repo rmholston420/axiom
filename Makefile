@@ -17,7 +17,7 @@ lint-py:
 	ruff format --check .
 
 lint-js:
-	pnpm --filter axiom-web exec next lint
+	pnpm --filter axiom-web lint
 
 # ── Format ─────────────────────────────────────────────────────────────────────
 format:
