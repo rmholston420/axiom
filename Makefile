@@ -1,3 +1,4 @@
+.PHONY: slice2-smoke slice2-quick
 .PHONY: install dev lint test compose
 
 install:
