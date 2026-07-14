@@ -221,7 +221,7 @@ function unmapSettings(data: Partial<SettingsData>): Partial<ApiSettings> {
   if (data.depth !== undefined) out.axiom_depth = data.depth;
   if (data.max_results_per_query !== undefined) out.axiom_max_results_per_query = data.max_results_per_query;
   if (data.council_enabled !== undefined) out.axiom_council_enabled = data.council_enabled;
-  if (data.axiomatizer_enabled !== undefined) out.axiom_axiomatizer_enabled = data.axiom_axiomatizer_enabled;
+  if (data.axiomatizer_enabled !== undefined) out.axiom_axiomatizer_enabled = data.axiomatizer_enabled;
   return out;
 }
 
