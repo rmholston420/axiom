@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:7200";
+const API_BASE = process.env.API_ORIGIN ?? "http://axiom-api:7200";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

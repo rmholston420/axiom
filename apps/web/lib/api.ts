@@ -1,7 +1,7 @@
 const isBrowser = typeof window !== "undefined";
 
 export const API_BASE =
-  (isBrowser ? "/api" : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:7200"));
+  (isBrowser ? "/api" : (process.env.API_ORIGIN ?? "http://axiom-api:7200"));
 
 export type JobStatus = "queued" | "running" | "done" | "error";
 

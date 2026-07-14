@@ -13,7 +13,10 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/axiomatizer", tags=["axiomatizer"])
 
-_AXIOMATIZER_BASE = f"http://127.0.0.1:{settings.axiom_axiomatizer_port}"
+_AXIOMATIZER_BASE = (
+    getattr(settings, "axiom_axiomatizer_url", None)
+    or f"http://axiom-axiomatizer:{settings.axiom_axiomatizer_port}"
+)
 
 
 class AxiomProxyRequest(BaseModel):
