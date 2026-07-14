@@ -3,6 +3,7 @@ services:
   axiom-redis:
     image: redis:7-alpine
     container_name: axiom-redis
+    restart: unless-stopped
     volumes:
       - axiom_redis_data:/data
     healthcheck:
@@ -11,7 +12,6 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-
 
   axiom-neo4j:
     image: neo4j:5
@@ -39,8 +39,31 @@ services:
       retries: 10
       start_period: 40s
 
+  axiom-ollama-init:
+    image: curlimages/curl:8.10.1
+    depends_on:
+      axiom-ollama:
+        condition: service_started
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+          set -e
+          until curl -fsS http://axiom-ollama:11434/api/tags >/dev/null; do
+            sleep 2
+          done
+          curl -fsS http://axiom-ollama:11434/api/pull \
+            -H 'Content-Type: application/json' \
+            -d '{"model":"llama3.2:3b","stream":false}'
+          curl -fsS http://axiom-ollama:11434/api/pull \
+            -H 'Content-Type: application/json' \
+            -d '{"model":"qwen3-coder:latest","stream":false}'
+
   axiom-api:
     depends_on:
+      axiom-ollama-init:
+        condition: service_completed_successfully
       axiom-redis:
         condition: service_healthy
       axiom-neo4j:
@@ -66,6 +89,15 @@ services:
       start_period: 15s
 
   axiom-council:
+    depends_on:
+      axiom-ollama-init:
+        condition: service_completed_successfully
+      axiom-redis:
+        condition: service_healthy
+      axiom-neo4j:
+        condition: service_healthy
+      axiom-ollama:
+        condition: service_started
     build:
       context: .
       dockerfile: apps/council/Dockerfile
@@ -86,6 +118,8 @@ services:
 
   axiom-axiomatizer:
     depends_on:
+      axiom-ollama-init:
+        condition: service_completed_successfully
       axiom-redis:
         condition: service_healthy
       axiom-neo4j:
@@ -109,6 +143,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+
   axiom-web:
     build:
       context: .

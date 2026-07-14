@@ -51,3 +51,8 @@ health:
 	@curl -sf http://localhost:7202/health | python3 -m json.tool || echo "UNREACHABLE"
 	@echo "--- Axiom Web ---"
 	@curl -sf http://localhost:7100/ > /dev/null && echo "OK" || echo "UNREACHABLE"
+
+pull-models:
+	@echo "Bootstrapping Ollama models via scripts/pull-models.sh"
+	@./scripts/pull-models.sh
+
