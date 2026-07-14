@@ -2,8 +2,10 @@ PYTHON := python3
 VENV_DIR := .venv
 VENV_BIN := $(VENV_DIR)/bin
 PORT ?= 7200
+COUNCIL_PORT ?= 7201
 
-.PHONY: venv install api api-dev api-stop api-restart health lint test
+.PHONY: venv install api api-dev api-stop api-restart health lint test \
+        council council-dev council-stop council-restart council-health
 
 install-packages:
 	. $(VENV_BIN)/activate && \
@@ -21,6 +23,7 @@ venv:
 		python -m pip install \
 			fastapi \
 			"uvicorn[standard]" \
+			httpx \
 			neo4j \
 			httpx \
 			redis \
@@ -31,6 +34,8 @@ venv:
 			ruff
 
 install: venv
+
+# --- Axiom API ---
 
 api-stop:
 	-pkill -f 'python -m uvicorn apps.api.main:app' || true
@@ -50,6 +55,28 @@ api-restart: api-stop
 
 health:
 	curl -sS http://localhost:$(PORT)/health | python3 -m json.tool
+
+# --- Axiom Council ---
+
+council-stop:
+	-pkill -f 'uvicorn apps.council.main:app' || true
+
+council:
+	. $(VENV_BIN)/activate && \
+	python -m uvicorn apps.council.main:app --host 0.0.0.0 --port $(COUNCIL_PORT)
+
+council-dev:
+	. $(VENV_BIN)/activate && \
+	python -m uvicorn apps.council.main:app --host 0.0.0.0 --port $(COUNCIL_PORT) --reload
+
+council-restart: council-stop
+	@sleep 1
+	@$(MAKE) council
+
+council-health:
+	curl -sS http://localhost:$(COUNCIL_PORT)/health | python3 -m json.tool
+
+# --- Shared ---
 
 lint:
 	. $(VENV_BIN)/activate && \
