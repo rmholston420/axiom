@@ -112,6 +112,31 @@ export default function GraphPage() {
     });
   }, [graphData, selectedNodeId]);
 
+
+  useEffect(() => {
+    if (!graphData || !fg3dRef.current) return;
+
+    const fg = fg3dRef.current;
+
+    try {
+      fg.d3Force("link")?.distance?.((link: any) => {
+        const sourceId = typeof link.source === "string" ? link.source : link.source.id;
+        const targetId = typeof link.target === "string" ? link.target : link.target.id;
+        const activeId = hoverNodeId ?? selectedNodeId;
+        if (!activeId) return 140;
+        return sourceId === activeId || targetId === activeId ? 190 : 150;
+      });
+
+      fg.d3ReheatSimulation();
+      setTimeout(() => {
+        try {
+          fg.zoomToFit(800, 80);
+        } catch {}
+      }, 250);
+    } catch {}
+  }, [graphData, hoverNodeId, selectedNodeId]);
+
+
   const toggleButtonStyle = (active: boolean): React.CSSProperties => ({
     display: "inline-flex",
     alignItems: "center",
@@ -347,9 +372,10 @@ export default function GraphPage() {
             const sourceId = typeof link.source === "string" ? link.source : link.source.id;
             const targetId = typeof link.target === "string" ? link.target : link.target.id;
             const activeId = hoverNodeId ?? selectedNodeId;
-            if (!activeId) return 2.4;
-            return sourceId === activeId || targetId === activeId ? 7 : 0.9;
+            if (!activeId) return 3.5;
+            return sourceId === activeId || targetId === activeId ? 9 : 1.4;
           }}
+          linkResolution={10}
           linkColor={(link: any) => {
             const sourceId = typeof link.source === "string" ? link.source : link.source.id;
             const targetId = typeof link.target === "string" ? link.target : link.target.id;
