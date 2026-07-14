@@ -1,0 +1,5 @@
+# Slice 7 will populate this file with Dockerfiles for axiom-api, axiom-council,
+# axiom-axiomatizer, and axiom-web.
+# Ollama, SearXNG, Neo4j, and Valkey are pre-existing and run outside this compose file.
+version: "3.9"
+services: {}
