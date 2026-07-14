@@ -69,6 +69,11 @@ AXIOM_NEO4J_USER=neo4j
 AXIOM_NEO4J_PASSWORD=collosus
 AXIOM_REDIS_URL=redis://host.docker.internal:6379
 
+Note: For local dev slices, Neo4j, Ollama, and Redis are provided as
+Docker-native services on the axiom_default network and reached via
+service names (axiom-neo4j, axiom-ollama, axiom-redis), while SearXNG
+remains host-provided.
+
 # New Axiom services
 AXIOM_API_PORT=7200
 AXIOM_COUNCIL_PORT=7201
