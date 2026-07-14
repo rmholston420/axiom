@@ -283,7 +283,6 @@ export default function GraphPage() {
           onNodeHover={(node: any) => setHoverNodeId(node?.id ?? null)}
           onNodeClick={(node: any) => setSelectedNodeId(node?.id ?? null)}
           onBackgroundClick={() => setSelectedNodeId(null)}
-          onBackgroundClick={() => setSelectedNodeId(null)}
           nodeLabel={(node: any) => `${node.type}: ${node.label}`}
           nodeRelSize={6}
           linkWidth={(link: any) => {
