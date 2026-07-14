@@ -25,7 +25,7 @@ async def list_models():
     """Proxy Ollama /api/tags to list locally available models."""
     url = settings.axiom_ollama_base_url.rstrip("/") + "/api/tags"
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=2.0) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             data = resp.json()
@@ -37,6 +37,6 @@ async def list_models():
                 )
                 for m in data.get("models", [])
             ]
-    except Exception:  # noqa: BLE001
+    except Exception:
         models = []
     return ModelsResponse(models=models)
