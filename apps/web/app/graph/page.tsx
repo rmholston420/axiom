@@ -38,6 +38,7 @@ export default function GraphPage() {
   const [mode, setMode] = useState<GraphMode>("2d");
   const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [cooldownTicks, setCooldownTicks] = useState<number | undefined>(undefined);
   const fg2dRef = useRef<any>(null);
   const fg3dRef = useRef<any>(null);
 
@@ -122,19 +123,19 @@ export default function GraphPage() {
       fg.d3Force("link")?.distance?.((link: any) => {
         const sourceId = typeof link.source === "string" ? link.source : link.source.id;
         const targetId = typeof link.target === "string" ? link.target : link.target.id;
-        const activeId = hoverNodeId ?? selectedNodeId;
-        if (!activeId) return 140;
-        return sourceId === activeId || targetId === activeId ? 190 : 150;
+        return sourceId === targetId ? 120 : 145;
       });
 
       fg.d3ReheatSimulation();
+      setCooldownTicks(undefined);
+
       setTimeout(() => {
         try {
           fg.zoomToFit(800, 80);
         } catch {}
       }, 250);
     } catch {}
-  }, [graphData, hoverNodeId, selectedNodeId]);
+  }, [graphData]);
 
 
   const toggleButtonStyle = (active: boolean): React.CSSProperties => ({
@@ -353,6 +354,8 @@ export default function GraphPage() {
         <ForceGraph3D
           ref={fg3dRef}
           graphData={graphData}
+          cooldownTicks={cooldownTicks}
+          onEngineStop={() => setCooldownTicks(0)}
           nodeId="id"
           linkSource="source"
           linkTarget="target"
