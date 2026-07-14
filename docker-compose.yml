@@ -1,5 +1,90 @@
-# Slice 7 will populate this file with Dockerfiles for axiom-api, axiom-council,
-# axiom-axiomatizer, and axiom-web.
-# Ollama, SearXNG, Neo4j, and Valkey are pre-existing and run outside this compose file.
+# Axiom services only.
+# Ollama, SearXNG, Neo4j, and Valkey run outside this file on host ports
+# 7434, 7300, 7687, and 7379 respectively.
 version: "3.9"
-services: {}
+
+services:
+  axiom-api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: axiom-api
+    restart: unless-stopped
+    ports:
+      - "${AXIOM_API_PORT:-7200}:7200"
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7200/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  axiom-council:
+    build:
+      context: .
+      dockerfile: apps/council/Dockerfile
+    container_name: axiom-council
+    restart: unless-stopped
+    ports:
+      - "${AXIOM_COUNCIL_PORT:-7201}:7201"
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7201/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      axiom-api:
+        condition: service_healthy
+
+  axiom-axiomatizer:
+    build:
+      context: .
+      dockerfile: apps/axiomatizer/Dockerfile
+    container_name: axiom-axiomatizer
+    restart: unless-stopped
+    ports:
+      - "${AXIOM_AXIOMATIZER_PORT:-7202}:7202"
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7202/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      axiom-api:
+        condition: service_healthy
+
+  axiom-web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: axiom-web
+    restart: unless-stopped
+    ports:
+      - "${AXIOM_WEB_PORT:-7100}:7100"
+    env_file:
+      - .env
+    environment:
+      - NEXT_PUBLIC_API_URL=http://axiom-api:7200
+    depends_on:
+      axiom-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7100/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

@@ -1,94 +1,59 @@
-PYTHON := python3
-VENV_DIR := .venv
-VENV_BIN := $(VENV_DIR)/bin
-PORT ?= 7200
-COUNCIL_PORT ?= 7201
-AXIOMATIZER_PORT ?= 7202
+.PHONY: setup install lint lint-py lint-js format test test-integration test-e2e \
+        compose-up compose-down compose-logs compose-build health
 
-.PHONY: venv install install-packages api api-dev api-stop api-restart health lint test \
-        council council-dev council-stop council-restart council-health \
-        axiomatizer axiomatizer-dev axiomatizer-stop axiomatizer-restart axiomatizer-health
+# ── Setup ──────────────────────────────────────────────────────────────────────
+setup: install
 
-install-packages:
-	. $(VENV_BIN)/activate && \
-		pip install -e packages/axiom_contracts && \
-		pip install -e packages/axiom_core && \
-		pip install -e packages/axiom_graph && \
-		pip install -e packages/axiom_providers && \
-		pip install -e packages/axiom_research
+install:
+	pip install -e ".[dev]"
+	corepack enable
+	pnpm install
 
-venv:
-	$(PYTHON) -m venv $(VENV_DIR)
-	. $(VENV_BIN)/activate && \
-		python -m pip install --upgrade pip wheel setuptools && \
-		python -m pip install fastapi "uvicorn[standard]" httpx neo4j redis pydantic pydantic-settings pytest pytest-asyncio ruff
+# ── Lint ───────────────────────────────────────────────────────────────────────
+lint: lint-py lint-js
 
-install: venv
+lint-py:
+	ruff check .
+	ruff format --check .
 
-api-stop:
-	-pkill -f 'python -m uvicorn apps.api.main:app' || true
-	-pkill -f 'uvicorn apps.api.main:app' || true
-	-fuser -k $(PORT)/tcp || true
+lint-js:
+	pnpm --filter axiom-web exec next lint
 
-api:
-	. $(VENV_BIN)/activate && \
-	python -m uvicorn apps.api.main:app --host 0.0.0.0 --port $(PORT)
+# ── Format ─────────────────────────────────────────────────────────────────────
+format:
+	ruff format .
+	ruff check --fix .
 
-api-dev:
-	. $(VENV_BIN)/activate && \
-	python -m uvicorn apps.api.main:app --host 0.0.0.0 --port $(PORT) --reload
-
-api-restart: api-stop
-	@sleep 1
-	@$(MAKE) api
-
-health:
-	curl -sS http://localhost:$(PORT)/health | python3 -m json.tool
-
-council-stop:
-	-pkill -f 'python -m uvicorn apps.council.main:app' || true
-	-pkill -f 'uvicorn apps.council.main:app' || true
-	-fuser -k $(COUNCIL_PORT)/tcp || true
-
-council:
-	. $(VENV_BIN)/activate && \
-	python -m uvicorn apps.council.main:app --host 0.0.0.0 --port $(COUNCIL_PORT)
-
-council-dev:
-	. $(VENV_BIN)/activate && \
-	python -m uvicorn apps.council.main:app --host 0.0.0.0 --port $(COUNCIL_PORT) --reload
-
-council-restart: council-stop
-	@sleep 1
-	@$(MAKE) council
-
-council-health:
-	curl -sS http://localhost:$(COUNCIL_PORT)/health | python3 -m json.tool
-
-axiomatizer-stop:
-	-pkill -f 'python -m uvicorn apps.axiomatizer.main:app' || true
-	-pkill -f 'uvicorn apps.axiomatizer.main:app' || true
-	-fuser -k $(AXIOMATIZER_PORT)/tcp || true
-
-axiomatizer:
-	. $(VENV_BIN)/activate && \
-	python -m uvicorn apps.axiomatizer.main:app --host 0.0.0.0 --port $(AXIOMATIZER_PORT)
-
-axiomatizer-dev:
-	. $(VENV_BIN)/activate && \
-	python -m uvicorn apps.axiomatizer.main:app --host 0.0.0.0 --port $(AXIOMATIZER_PORT) --reload
-
-axiomatizer-restart: axiomatizer-stop
-	@sleep 1
-	@$(MAKE) axiomatizer
-
-axiomatizer-health:
-	curl -sS http://localhost:$(AXIOMATIZER_PORT)/health | python3 -m json.tool
-
-lint:
-	. $(VENV_BIN)/activate && \
-	python -m ruff check apps packages
-
+# ── Tests ──────────────────────────────────────────────────────────────────────
 test:
-	. $(VENV_BIN)/activate && \
-	pytest
+	pytest -m "not integration and not e2e"
+
+test-integration:
+	pytest -m integration
+
+test-e2e:
+	pytest -m e2e
+
+# ── Docker ─────────────────────────────────────────────────────────────────────
+compose-up:
+	docker compose up -d
+
+compose-down:
+	docker compose down --remove-orphans
+
+compose-logs:
+	docker compose logs -f
+
+compose-build:
+	docker compose build --no-cache
+
+# ── Health ─────────────────────────────────────────────────────────────────────
+health:
+	@echo "--- Axiom API ---"
+	@curl -sf http://localhost:7200/health | python3 -m json.tool || echo "UNREACHABLE"
+	@echo "--- Axiom Council ---"
+	@curl -sf http://localhost:7201/health | python3 -m json.tool || echo "UNREACHABLE"
+	@echo "--- Axiom Axiomatizer ---"
+	@curl -sf http://localhost:7202/health | python3 -m json.tool || echo "UNREACHABLE"
+	@echo "--- Axiom Web ---"
+	@curl -sf http://localhost:7100/ > /dev/null && echo "OK" || echo "UNREACHABLE"
