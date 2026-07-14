@@ -1,174 +1,165 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
 import Shell from "@/components/Shell";
 import { fetchGraph, type GraphData } from "@/lib/api";
+import { Loader2, RefreshCw, Network } from "lucide-react";
 
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
-  ssr: false,
-});
+const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
 
-type FGNode = {
+type ForceNode = {
   id: string;
-  label: string;
-  type: string;
+  label?: string;
+  type?: string;
 };
 
-type FGLink = {
+type ForceLink = {
   source: string;
   target: string;
-  type: string;
+  type?: string;
 };
 
 export default function GraphPage() {
   const [data, setData] = useState<GraphData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
+  const load = async () => {
     setLoading(true);
     setError("");
     try {
       const result = await fetchGraph();
       setData(result);
     } catch (err) {
+      setData(null);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    const kick = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       void load();
     }, 0);
-
-    return () => {
-      window.clearTimeout(kick);
-    };
-  }, [load]);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const graphData = useMemo(() => {
-    if (!data) return { nodes: [] as FGNode[], links: [] as FGLink[] };
     return {
-      nodes: data.nodes.map((n) => ({
+      nodes: (data?.nodes ?? []).map((n) => ({
         id: n.id,
-        label: n.label,
-        type: n.type,
-      })),
-      links: data.links.map((l, idx) => ({
-        ...l,
-        key: `${l.source}-${l.target}-${l.type}-${idx}`,
-      })),
+        label: n.label ?? n.id,
+        type: n.type ?? n.group ?? "Node",
+      })) as ForceNode[],
+      links: (data?.links ?? []).map((l) => ({
+        source: l.source,
+        target: l.target,
+        type: l.type ?? l.label ?? "RELATES_TO",
+      })) as ForceLink[],
     };
   }, [data]);
 
-  const nodeColor = (node: { type?: string }) => {
-    if (node.type === "Query") return "#4f98a3";
-    if (node.type === "Finding") return "#6daa45";
-    if (node.type === "Source") return "#da7101";
-    return "#8a8a93";
-  };
+  const hasGraph = graphData.nodes.length > 0 || graphData.links.length > 0;
 
   return (
     <Shell>
-      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.9rem", marginBottom: "1rem" }}>
-          <h1 style={{ fontSize: "1.6rem", fontWeight: 700 }}>Graph</h1>
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              padding: "0.55rem 0.9rem",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-border)",
-              background: "var(--color-surface)",
-              color: "var(--color-text-muted)",
-            }}
-          >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            Refresh
-          </button>
-        </div>
-
-        <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem", color: "var(--color-text-muted)", fontSize: "0.82rem" }}>
-          {[
-            ["Query", "#4f98a3"],
-            ["Finding", "#6daa45"],
-            ["Source", "#da7101"],
-          ].map(([label, color]) => (
-            <div key={String(label)} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <span style={{ width: 10, height: 10, borderRadius: "999px", background: String(color), display: "inline-block" }} />
-              {label}
-            </div>
-          ))}
-        </div>
-
-        {error && (
-          <div
-            style={{
-              marginBottom: "1rem",
-              padding: "0.85rem 1rem",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-border)",
-              background: "var(--color-surface)",
-              color: "var(--color-error)",
-            }}
-          >
-            Could not load graph: {error}
-          </div>
-        )}
-
-        <div
+      <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
+        <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text)" }}>Graph</h1>
+        <button
+          onClick={() => void load()}
+          disabled={loading}
           style={{
-            height: "calc(100dvh - 220px)",
-            minHeight: 520,
-            borderRadius: "var(--radius-lg)",
-            overflow: "hidden",
-            border: "1px solid var(--color-border)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.375rem",
+            padding: "0.4rem 0.875rem",
             background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-md)",
+            color: "var(--color-text-muted)",
+            fontSize: "0.8125rem",
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          {loading && !data ? (
-            <div
-              style={{
-                height: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "var(--color-text-muted)",
-              }}
-            >
-              <Loader2 size={22} className="animate-spin" />
-            </div>
-          ) : (
-            <ForceGraph2D
-              graphData={graphData}
-              backgroundColor="#141416"
-              nodeId="id"
-              linkSource="source"
-              linkTarget="target"
-              nodeLabel={(node) => {
-                const n = node as FGNode;
-                return `${n.label}\nSchema: ${n.type}`;
-              }}
-              nodeColor={(node) => nodeColor(node as FGNode)}
-              linkColor={() => "#2a2a2e"}
-              linkDirectionalArrowLength={4}
-              linkDirectionalArrowRelPos={1}
-              nodeRelSize={6}
-              cooldownTicks={120}
-              d3AlphaMin={0.02}
-            />
-          )}
-        </div>
+          {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+          Refresh
+        </button>
       </div>
+
+      <div style={{ marginBottom: "1rem", color: "var(--color-text-muted)", fontSize: "0.875rem" }}>
+        Slice 4 expects graph data from the API, but your backend does not expose that endpoint yet.
+      </div>
+
+      {error && (
+        <div
+          style={{
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-lg)",
+            padding: "1rem",
+            marginBottom: "1rem",
+            color: "#d163a7",
+            fontSize: "0.875rem",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {!hasGraph && (
+        <div
+          style={{
+            display: "grid",
+            placeItems: "center",
+            minHeight: "420px",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-lg)",
+            color: "var(--color-text-muted)",
+            textAlign: "center",
+            padding: "2rem",
+          }}
+        >
+          <div>
+            <Network size={32} style={{ margin: "0 auto 0.75rem", opacity: 0.4 }} />
+            <div style={{ fontSize: "1rem", color: "var(--color-text)", marginBottom: "0.5rem" }}>
+              Graph endpoint not implemented yet
+            </div>
+            <div style={{ fontSize: "0.875rem", maxWidth: "48ch" }}>
+              Add the Slice 3 graph/data endpoint in Axiom API, then this page will render Query, Finding, and Source nodes.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasGraph && (
+        <div
+          style={{
+            width: "100%",
+            height: "calc(100dvh - 220px)",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-lg)",
+            overflow: "hidden",
+          }}
+        >
+          <ForceGraph2D
+            graphData={graphData}
+            nodeLabel={(node) => {
+              const n = node as ForceNode;
+              return `${n.label ?? "Node"}${n.type ? ` (${n.type})` : ""}`;
+            }}
+            nodeAutoColorBy="type"
+            linkLabel={(link) => {
+              const l = link as ForceLink;
+              return l.type ?? "";
+            }}
+            backgroundColor="#141416"
+          />
+        </div>
+      )}
     </Shell>
   );
 }

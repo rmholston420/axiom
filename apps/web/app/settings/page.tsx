@@ -3,93 +3,73 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, Save } from "lucide-react";
 import Shell from "@/components/Shell";
-import {
-  fetchModels,
-  fetchSettings,
-  saveSettings,
-  type ModelOption,
-  type SettingsData,
-} from "@/lib/api";
+import { fetchModels, fetchSettings, saveSettings, type SettingsData } from "@/lib/api";
 
-const modelFields: (keyof SettingsData)[] = [
-  "model_planner",
-  "model_synthesizer",
-  "model_code",
-  "model_critic",
-];
-
-const numberFields: (keyof SettingsData)[] = [
-  "breadth",
-  "depth",
-  "max_results_per_query",
-];
-
-const boolFields: (keyof SettingsData)[] = [
-  "council_enabled",
-  "axiomatizer_enabled",
-];
-
-const labels: Record<keyof SettingsData, string> = {
-  model_planner: "Planner model",
-  model_synthesizer: "Synthesizer model",
-  model_code: "Code model",
-  model_critic: "Critic model",
-  breadth: "Breadth",
-  depth: "Depth",
-  max_results_per_query: "Max results / query",
-  council_enabled: "Council enabled",
-  axiomatizer_enabled: "Axiomatizer enabled",
+const defaultSettings: SettingsData = {
+  model_planner: "",
+  model_synthesizer: "",
+  model_code: "",
+  model_critic: "",
+  breadth: 4,
+  depth: 3,
+  max_results_per_query: 5,
+  council_enabled: true,
+  axiomatizer_enabled: false,
 };
 
-const sectionStyle: React.CSSProperties = {
-  background: "var(--color-surface)",
-  border: "1px solid var(--color-border)",
-  borderRadius: "var(--radius-lg)",
-  padding: "1.25rem",
-  marginBottom: "1rem",
-};
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  background: "var(--color-surface-2)",
-  border: "1px solid var(--color-border)",
-  borderRadius: "var(--radius-md)",
-  padding: "0.7rem 0.8rem",
-  color: "var(--color-text)",
-};
+function fieldStyle(): React.CSSProperties {
+  return {
+    width: "100%",
+    background: "var(--color-surface-2)",
+    color: "var(--color-text)",
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius-md)",
+    padding: "0.8rem 0.9rem",
+  };
+}
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<SettingsData | null>(null);
-  const [models, setModels] = useState<ModelOption[]>([]);
+  const [settings, setSettings] = useState<SettingsData>(defaultSettings);
+  const [models, setModels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    Promise.all([fetchSettings(), fetchModels()])
-      .then(([settingsData, modelList]) => {
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const [settingsData, modelsData] = await Promise.all([
+          fetchSettings(),
+          fetchModels(),
+        ]);
         setSettings(settingsData);
-        setModels(modelList);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
-      .finally(() => setLoading(false));
+        setModels(modelsData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void load();
   }, []);
 
-  function updateField<K extends keyof SettingsData>(key: K, value: SettingsData[K]) {
-    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
+  function update<K extends keyof SettingsData>(key: K, value: SettingsData[K]) {
+    setSettings((prev) => ({ ...prev, [key]: value }));
   }
 
   async function onSave() {
-    if (!settings) return;
     setSaving(true);
-    setError("");
     setSaved(false);
-
+    setError("");
     try {
-      await saveSettings(settings);
+      const response = await saveSettings(settings);
+      setSettings(response);
       setSaved(true);
-      setTimeout(() => setSaved(false), 1800);
+      window.setTimeout(() => setSaved(false), 1800);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -99,75 +79,110 @@ export default function SettingsPage() {
 
   return (
     <Shell>
-      <div style={{ maxWidth: 880, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1rem" }}>
-          <h1 style={{ fontSize: "1.6rem", fontWeight: 700 }}>Settings</h1>
+      <div style={{ maxWidth: "900px", display: "grid", gap: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <h1 style={{ fontSize: "1.75rem", fontWeight: 700 }}>Settings</h1>
+            <p style={{ color: "var(--color-text-muted)", fontSize: "0.95rem" }}>
+              Runtime defaults and model selection.
+            </p>
+          </div>
           <button
-            type="button"
             onClick={() => void onSave()}
-            disabled={!settings || loading || saving}
+            disabled={saving || loading}
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "0.45rem",
-              padding: "0.65rem 1rem",
+              gap: "0.5rem",
+              padding: "0.8rem 1rem",
+              background: saved ? "#15803d" : "var(--color-primary)",
+              color: "white",
               border: "none",
               borderRadius: "var(--radius-md)",
-              background: saved ? "var(--color-success)" : "var(--color-primary)",
-              color: "white",
               fontWeight: 600,
+              opacity: saving || loading ? 0.7 : 1,
+              cursor: saving || loading ? "not-allowed" : "pointer",
             }}
           >
             {saving ? (
-              <Loader2 size={15} className="animate-spin" />
+              <Loader2 size={16} className="animate-spin" />
             ) : saved ? (
-              <CheckCircle2 size={15} />
+              <CheckCircle2 size={16} />
             ) : (
-              <Save size={15} />
+              <Save size={16} />
             )}
-            {saving ? "Saving…" : saved ? "Saved!" : "Save"}
+            {saving ? "Saving..." : saved ? "Saved" : "Save"}
           </button>
         </div>
 
-        {error && (
-          <div style={{ ...sectionStyle, color: "var(--color-error)" }}>{error}</div>
-        )}
-
-        {loading && (
-          <div style={{ ...sectionStyle, color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Loader2 size={16} className="animate-spin" />
-            Loading settings…
+        {error ? (
+          <div
+            style={{
+              color: "#fda4af",
+              background: "rgba(127,29,29,0.25)",
+              border: "1px solid rgba(248,113,113,0.35)",
+              borderRadius: "var(--radius-md)",
+              padding: "0.85rem",
+            }}
+          >
+            {error}
           </div>
-        )}
+        ) : null}
 
-        {settings && (
+        {loading ? (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              color: "var(--color-text-muted)",
+            }}
+          >
+            <Loader2 size={16} className="animate-spin" />
+            Loading settings...
+          </div>
+        ) : (
           <>
-            <section style={sectionStyle}>
-              <h2 style={{ marginBottom: "1rem", fontSize: "1rem", fontWeight: 700 }}>Models</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1rem" }}>
-                {modelFields.map((field) => (
-                  <label key={field} style={{ display: "block" }}>
-                    <div style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: "0.35rem" }}>
-                      {labels[field]}
-                    </div>
+            <section
+              style={{
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-lg)",
+                padding: "1rem",
+              }}
+            >
+              <h2 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem" }}>Models</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "1rem" }}>
+                {[
+                  ["model_planner", "Planner"],
+                  ["model_synthesizer", "Synthesizer"],
+                  ["model_code", "Code"],
+                  ["model_critic", "Critic"],
+                ].map(([key, label]) => (
+                  <label key={key} style={{ display: "grid", gap: "0.45rem" }}>
+                    <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{label}</span>
                     {models.length > 0 ? (
                       <select
-                        value={settings[field] as string}
-                        onChange={(e) => updateField(field, e.target.value as SettingsData[typeof field])}
-                        style={inputStyle}
+                        value={settings[key as keyof SettingsData] as string}
+                        onChange={(e) =>
+                          update(key as keyof SettingsData, e.target.value as never)
+                        }
+                        style={fieldStyle()}
                       >
+                        <option value="">Select a model</option>
                         {models.map((model) => (
-                          <option key={model.value} value={model.value}>
-                            {model.label}
+                          <option key={model} value={model}>
+                            {model}
                           </option>
                         ))}
                       </select>
                     ) : (
                       <input
-                        type="text"
-                        value={settings[field] as string}
-                        onChange={(e) => updateField(field, e.target.value as SettingsData[typeof field])}
-                        style={inputStyle}
+                        value={settings[key as keyof SettingsData] as string}
+                        onChange={(e) =>
+                          update(key as keyof SettingsData, e.target.value as never)
+                        }
+                        style={fieldStyle()}
                       />
                     )}
                   </label>
@@ -175,40 +190,75 @@ export default function SettingsPage() {
               </div>
             </section>
 
-            <section style={sectionStyle}>
-              <h2 style={{ marginBottom: "1rem", fontSize: "1rem", fontWeight: 700 }}>Runtime</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
-                {numberFields.map((field) => (
-                  <label key={field} style={{ display: "block" }}>
-                    <div style={{ fontSize: "0.82rem", color: "var(--color-text-muted)", marginBottom: "0.35rem" }}>
-                      {labels[field]}
-                    </div>
-                    <input
-                      type="number"
-                      min={1}
-                      value={settings[field] as number}
-                      onChange={(e) => updateField(field, Number(e.target.value) as SettingsData[typeof field])}
-                      style={inputStyle}
-                    />
-                  </label>
-                ))}
+            <section
+              style={{
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-lg)",
+                padding: "1rem",
+              }}
+            >
+              <h2 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem" }}>Runtime</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "1rem" }}>
+                <label style={{ display: "grid", gap: "0.45rem" }}>
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Breadth</span>
+                  <input
+                    type="number"
+                    value={settings.breadth}
+                    onChange={(e) => update("breadth", Number(e.target.value))}
+                    style={fieldStyle()}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: "0.45rem" }}>
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Depth</span>
+                  <input
+                    type="number"
+                    value={settings.depth}
+                    onChange={(e) => update("depth", Number(e.target.value))}
+                    style={fieldStyle()}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: "0.45rem" }}>
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Max results / query</span>
+                  <input
+                    type="number"
+                    value={settings.max_results_per_query}
+                    onChange={(e) => update("max_results_per_query", Number(e.target.value))}
+                    style={fieldStyle()}
+                  />
+                </label>
               </div>
             </section>
 
-            <section style={sectionStyle}>
-              <h2 style={{ marginBottom: "1rem", fontSize: "1rem", fontWeight: 700 }}>Feature Flags</h2>
-              <div style={{ display: "grid", gap: "0.9rem" }}>
-                {boolFields.map((field) => (
-                  <label key={field} style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-                    <input
-                      type="checkbox"
-                      checked={settings[field] as boolean}
-                      onChange={(e) => updateField(field, e.target.checked as SettingsData[typeof field])}
-                      style={{ width: 16, height: 16, accentColor: "var(--color-primary)" }}
-                    />
-                    <span>{labels[field]}</span>
-                  </label>
-                ))}
+            <section
+              style={{
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-lg)",
+                padding: "1rem",
+              }}
+            >
+              <h2 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem" }}>Features</h2>
+              <div style={{ display: "grid", gap: "0.75rem" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.council_enabled}
+                    onChange={(e) => update("council_enabled", e.target.checked)}
+                  />
+                  <span>Council enabled</span>
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.axiomatizer_enabled}
+                    onChange={(e) => update("axiomatizer_enabled", e.target.checked)}
+                  />
+                  <span>Axiomatizer enabled</span>
+                </label>
               </div>
             </section>
           </>

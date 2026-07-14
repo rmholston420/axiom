@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 
+const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:7200";
+
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["127.0.0.1", "localhost", "192.168.1.208"],
   async rewrites() {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:7200/:path*",
+        destination: `${API_ORIGIN}/:path*`,
       },
     ];
   },
