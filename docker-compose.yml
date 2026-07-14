@@ -1,5 +1,52 @@
 services:
+
+  axiom-redis:
+    image: redis:7-alpine
+    container_name: axiom-redis
+    volumes:
+      - axiom_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+
+  axiom-neo4j:
+    image: neo4j:5
+    container_name: axiom-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/collosus
+    volumes:
+      - axiom_neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  axiom-ollama:
+    image: ollama/ollama:latest
+    container_name: axiom-ollama
+    volumes:
+      - axiom_ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 11434 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
   axiom-api:
+    depends_on:
+      axiom-redis:
+        condition: service_healthy
+      axiom-neo4j:
+        condition: service_healthy
+      axiom-ollama:
+        condition: service_started
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -38,6 +85,13 @@ services:
       start_period: 15s
 
   axiom-axiomatizer:
+    depends_on:
+      axiom-redis:
+        condition: service_healthy
+      axiom-neo4j:
+        condition: service_healthy
+      axiom-ollama:
+        condition: service_started
     build:
       context: .
       dockerfile: apps/axiomatizer/Dockerfile
@@ -76,3 +130,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+
+volumes:
+  axiom_redis_data:
+  axiom_neo4j_data:
+  axiom_ollama_data:
