@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import Shell from "@/components/Shell";
-import { API_BASE, createJob, fetchJobs, type Job } from "@/lib/api";
+import { createJob, fetchJobs, type Job } from "@/lib/api";
 
 const panelStyle: React.CSSProperties = {
   background: "var(--color-surface)",
@@ -81,7 +81,7 @@ export default function DashboardPage() {
       setReport("");
       setError("");
 
-      const es = new EventSource(`${API_BASE}/jobs/${jobId}/stream`);
+      const es = new EventSource(`/api/jobs/${jobId}/stream`);
       streamRef.current = es;
 
       es.onmessage = (event) => {

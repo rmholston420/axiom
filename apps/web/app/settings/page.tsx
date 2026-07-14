@@ -7,6 +7,7 @@ import {
   fetchModels,
   fetchSettings,
   saveSettings,
+  type ModelOption,
   type SettingsData,
 } from "@/lib/api";
 
@@ -59,7 +60,7 @@ const inputStyle: React.CSSProperties = {
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsData | null>(null);
-  const [models, setModels] = useState<string[]>([]);
+  const [models, setModels] = useState<ModelOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -156,8 +157,8 @@ export default function SettingsPage() {
                         style={inputStyle}
                       >
                         {models.map((model) => (
-                          <option key={model} value={model}>
-                            {model}
+                          <option key={model.value} value={model.value}>
+                            {model.label}
                           </option>
                         ))}
                       </select>

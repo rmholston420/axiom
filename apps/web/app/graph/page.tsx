@@ -58,10 +58,9 @@ export default function GraphPage() {
         label: n.label,
         type: n.type,
       })),
-      links: data.links.map((l) => ({
-        source: l.source,
-        target: l.target,
-        type: l.type,
+      links: data.links.map((l, idx) => ({
+        ...l,
+        key: `${l.source}-${l.target}-${l.type}-${idx}`,
       })),
     };
   }, [data]);
@@ -104,8 +103,8 @@ export default function GraphPage() {
             ["Finding", "#6daa45"],
             ["Source", "#da7101"],
           ].map(([label, color]) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <span style={{ width: 10, height: 10, borderRadius: "999px", background: color as string, display: "inline-block" }} />
+            <div key={String(label)} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <span style={{ width: 10, height: 10, borderRadius: "999px", background: String(color), display: "inline-block" }} />
               {label}
             </div>
           ))}
@@ -152,6 +151,9 @@ export default function GraphPage() {
             <ForceGraph2D
               graphData={graphData}
               backgroundColor="#141416"
+              nodeId="id"
+              linkSource="source"
+              linkTarget="target"
               nodeLabel={(node) => `${(node as FGNode).type}: ${(node as FGNode).label}`}
               nodeColor={(node) => nodeColor(node as FGNode)}
               linkColor={() => "#2a2a2e"}
