@@ -73,6 +73,49 @@ _ROLES = [
     "Visionary",
 ]
 
+def _tokenize_opinion(text: str) -> set[str]:
+    """Normalize an opinion into a lightweight keyword set."""
+    stop = {
+        "the", "a", "an", "and", "or", "but", "if", "then", "that", "this", "these", "those",
+        "is", "are", "was", "were", "be", "been", "being", "it", "its", "as", "of", "to", "for",
+        "in", "on", "at", "by", "with", "from", "into", "about", "than", "so", "such", "while",
+        "i", "we", "you", "they", "he", "she", "them", "our", "their", "my", "your",
+        "would", "could", "should", "may", "might", "can", "cannot", "will",
+        "some", "many", "more", "most", "much", "very", "also", "still", "remain", "remains",
+        "believe", "think", "argue", "like", "offer", "perspective", "based", "current", "important",
+        "problem", "problems", "open", "computing", "quantum"
+    }
+    words = re.findall(r"[a-z0-9]+", text.lower())
+    return {w for w in words if len(w) >= 4 and w not in stop}
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    union = a | b
+    if not union:
+        return 0.0
+    return len(a & b) / len(union)
+
+
+def _contains_explicit_contradiction(text: str) -> bool:
+    markers = [
+        "disagree with member",
+        "i disagree",
+        "however",
+        "in contrast",
+        "on the other hand",
+        "contrary to",
+        "rather than",
+        "instead",
+        "not the primary",
+        "not the main",
+        "overly optimistic",
+        "skeptical about",
+    ]
+    lower = text.lower()
+    return any(m in lower for m in markers)
+
 
 # ---------------------------------------------------------------------------
 # Core logic
@@ -122,18 +165,41 @@ async def _chairman_synthesize(
 
 
 def _detect_disagreement(opinions: list[MemberOpinion]) -> bool:
-    """Heuristic: look for disagreement signal words in any opinion."""
-    signals = [
-        "disagree", "however", "contrary", "on the other hand",
-        "i would argue", "in contrast", "nevertheless", "yet",
-        "dispute", "challenge", "differ",
-    ]
-    for o in opinions:
-        lower = o.opinion.lower()
-        if any(s in lower for s in signals):
-            return True
-    return False
+    """Infer disagreement from pairwise topic overlap plus contradiction cues.
 
+    This avoids false positives from generic skeptical phrasing inside one
+    opinion when members are still broadly aligned on the same themes.
+    """
+    if len(opinions) < 2:
+        return False
+
+    token_sets = [_tokenize_opinion(o.opinion) for o in opinions]
+    overlaps: list[float] = []
+
+    for i in range(len(opinions)):
+        for j in range(i + 1, len(opinions)):
+            overlap = _jaccard(token_sets[i], token_sets[j])
+            overlaps.append(overlap)
+
+            a_contra = _contains_explicit_contradiction(opinions[i].opinion)
+            b_contra = _contains_explicit_contradiction(opinions[j].opinion)
+
+            # Strong topical divergence + contradiction language => disagreement.
+            if overlap < 0.18 and (a_contra or b_contra):
+                return True
+
+    avg_overlap = sum(overlaps) / len(overlaps) if overlaps else 0.0
+
+    # Broad shared-topic overlap means practical agreement.
+    if avg_overlap >= 0.26:
+        return False
+
+    # Low overlap across the board suggests substantially different priorities.
+    if avg_overlap < 0.12:
+        return True
+
+    # Middle band: only treat as disagreement if at least one opinion is explicitly contrastive.
+    return any(_contains_explicit_contradiction(o.opinion) for o in opinions) and avg_overlap < 0.22
 
 # ---------------------------------------------------------------------------
 # Endpoint
