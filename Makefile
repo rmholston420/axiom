@@ -20,3 +20,7 @@ compose:
 
 slice2-smoke:
 	poetry run python scripts/research.py "What are the main applications of Tibetan Buddhist philosophy in modern cognitive science?"
+
+slice2-quick:
+	poetry run python scripts/research.py "What is mindfulness?"
+
