@@ -1,7 +1,6 @@
 .PHONY: setup install lint lint-py lint-js format test test-integration test-e2e \
         compose-up compose-down compose-logs compose-build health
 
-# ── Setup ──────────────────────────────────────────────────────────────────────
 setup: install
 
 install:
@@ -9,22 +8,19 @@ install:
 	corepack enable
 	pnpm install
 
-# ── Lint ───────────────────────────────────────────────────────────────────────
 lint: lint-py lint-js
 
 lint-py:
-	ruff check .
-	ruff format --check .
+	ruff check apps packages tests scripts
+	ruff format --check apps packages tests scripts
 
 lint-js:
-	pnpm --filter axiom-web lint
+	pnpm --filter web lint
 
-# ── Format ─────────────────────────────────────────────────────────────────────
 format:
-	ruff format .
-	ruff check --fix .
+	ruff format apps packages tests scripts
+	ruff check --fix apps packages tests scripts
 
-# ── Tests ──────────────────────────────────────────────────────────────────────
 test:
 	pytest -m "not integration and not e2e"
 
@@ -34,7 +30,6 @@ test-integration:
 test-e2e:
 	pytest -m e2e
 
-# ── Docker ─────────────────────────────────────────────────────────────────────
 compose-up:
 	docker compose up -d
 
@@ -47,7 +42,6 @@ compose-logs:
 compose-build:
 	docker compose build --no-cache
 
-# ── Health ─────────────────────────────────────────────────────────────────────
 health:
 	@echo "--- Axiom API ---"
 	@curl -sf http://localhost:7200/health | python3 -m json.tool || echo "UNREACHABLE"

@@ -31,9 +31,12 @@ async def test_settings_returns_dict() -> None:
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-async def test_models_returns_list() -> None:
-    """GET /models returns a JSON list."""
+async def test_models_returns_payload_with_models_list() -> None:
+    """GET /models returns an object containing a models list."""
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(f"{AXIOM_API_URL}/models")
     assert resp.status_code == 200
-    assert isinstance(resp.json(), list)
+    payload = resp.json()
+    assert isinstance(payload, dict)
+    assert "models" in payload
+    assert isinstance(payload["models"], list)
