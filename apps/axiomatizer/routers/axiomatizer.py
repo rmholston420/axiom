@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -36,24 +37,34 @@ class AxiomResponse(BaseModel):
 
 _SYSTEM_PROPOSE = (
     "You are the Axiom Axiomatizer. Distill the input into a precise, falsifiable axiom. "
-    "Return strict JSON only with keys statement, justification, confidence."
+    "Return strict JSON only with keys statement, justification, confidence. "
+    "confidence must be a number from 0.0 to 1.0."
 )
 
 _SYSTEM_EVALUATE = (
     "You are a rigorous evaluator of axiomatic statements. "
-    "Return strict JSON only with keys approved and reason."
+    "Evaluate whether the axiom is well-formed, non-trivial, and falsifiable. "
+    "Return strict JSON only with keys approved and reason. "
+    "approved must be true or false."
 )
 
 
-def _clean_json(raw: str) -> dict:
-    cleaned = raw.strip()
-    if cleaned.startswith("```json"):
-        cleaned = cleaned[len("```json"):].strip()
-    elif cleaned.startswith("```"):
-        cleaned = cleaned[len("```"):].strip()
-    if cleaned.endswith("```"):
-        cleaned = cleaned[:-3].strip()
-    return json.loads(cleaned)
+def _extract_json_object(raw: str) -> dict:
+    text = raw.strip()
+    if text.startswith("```json"):
+        text = text[len("```json"):].strip()
+    elif text.startswith("```"):
+        text = text[len("```"):].strip()
+    if text.endswith("```"):
+        text = text[:-3].strip()
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if not match:
+            raise
+        return json.loads(match.group(0))
 
 
 async def _propose_axiom(ollama: OllamaProvider, source_text: str, context: str) -> dict:
@@ -66,22 +77,38 @@ async def _propose_axiom(ollama: OllamaProvider, source_text: str, context: str)
         system=_SYSTEM_PROPOSE,
     )
     try:
-        return _clean_json(raw)
+        data = _extract_json_object(raw)
+        return {
+            "statement": str(data.get("statement", "")).strip(),
+            "justification": str(data.get("justification", "")).strip(),
+            "confidence": float(data.get("confidence", 0.5)),
+        }
     except Exception as exc:
-        log.warning("Axiomatizer propose parse error: %s", exc)
+        log.warning("Axiomatizer propose parse error: %s | raw=%r", exc, raw[:500])
         raise HTTPException(status_code=502, detail=f"Unparseable axiomatizer JSON: {raw[:300]}")
 
 
 async def _evaluate_axiom(ollama: OllamaProvider, statement: str, justification: str) -> dict:
-    prompt = f'Axiom: "{statement}"\nJustification: "{justification}"'
+    prompt = (
+        "Axiom statement:\n"
+        f"{statement}\n\n"
+        "Justification:\n"
+        f"{justification}\n\n"
+        "Return JSON only."
+    )
     raw = await ollama.generate(
         model=settings.axiom_model_critic,
         prompt=prompt,
         system=_SYSTEM_EVALUATE,
     )
     try:
-        return _clean_json(raw)
-    except Exception:
+        data = _extract_json_object(raw)
+        return {
+            "approved": bool(data.get("approved", True)),
+            "reason": str(data.get("reason", "")).strip(),
+        }
+    except Exception as exc:
+        log.warning("Axiomatizer evaluate parse error: %s | raw=%r", exc, raw[:500])
         return {"approved": True, "reason": "evaluation parse failed — defaulting to approved"}
 
 
@@ -144,16 +171,16 @@ async def run_axiomatizer(body: AxiomRequest) -> AxiomResponse:
     axiom_id = str(uuid.uuid4())
 
     proposal = await _propose_axiom(ollama, body.source_text, body.context)
-    statement = str(proposal.get("statement", "")).strip()
-    justification = str(proposal.get("justification", "")).strip()
-    confidence = float(proposal.get("confidence", 0.5))
+    statement = proposal["statement"]
+    justification = proposal["justification"]
+    confidence = proposal["confidence"]
 
     if not statement:
         raise HTTPException(status_code=502, detail="Axiomatizer returned an empty statement.")
 
     evaluation = await _evaluate_axiom(ollama, statement, justification)
-    approved = bool(evaluation.get("approved", True))
-    eval_reason = str(evaluation.get("reason", ""))
+    approved = evaluation["approved"]
+    eval_reason = evaluation["reason"]
 
     await _persist_axiom(
         axiom_id=axiom_id,
