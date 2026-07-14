@@ -135,6 +135,8 @@ class QueueWorker:
                 await self._process(job_id)
             except asyncio.CancelledError:
                 break
+            except (ConnectionError, TimeoutError):
+                await asyncio.sleep(2)
             except Exception:  # noqa: BLE001
                 log.exception("Unexpected error in worker loop")
                 await asyncio.sleep(1)
