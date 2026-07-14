@@ -38,10 +38,10 @@ class GraphResponse(BaseModel):
 
 NODES_CYPHER = """
 MATCH (n)
-WHERE n:Query OR n:Finding OR n:Source
+WHERE n:Query OR n:Finding OR n:Source OR n:Axiom
 RETURN
     toString(id(n)) AS id,
-    coalesce(n.text, n.title, n.url, labels(n)[0]) AS label,
+    coalesce(n.label, n.statement, n.text, n.title, n.url, labels(n)[0]) AS label,
     labels(n)[0] AS type,
     properties(n) AS props
 LIMIT 500
@@ -49,8 +49,8 @@ LIMIT 500
 
 EDGES_CYPHER = """
 MATCH (a)-[r]->(b)
-WHERE (a:Query OR a:Finding OR a:Source)
-  AND (b:Query OR b:Finding OR b:Source)
+WHERE (a:Query OR a:Finding OR a:Source OR a:Axiom)
+  AND (b:Query OR b:Finding OR b:Source OR b:Axiom)
 RETURN
     toString(id(a)) AS source,
     toString(id(b)) AS target,
@@ -100,11 +100,11 @@ async def get_graph(driver: AsyncDriver = Depends(get_driver)):
 
 @router.get("/nodes", response_model=GraphNodesResponse)
 async def get_nodes(driver: AsyncDriver = Depends(get_driver)):
-    """Return all Query, Finding, and Source nodes."""
+    """Return all Query, Finding, Source, and Axiom nodes."""
     return GraphNodesResponse(nodes=await _load_nodes(driver))
 
 
 @router.get("/edges", response_model=GraphEdgesResponse)
 async def get_edges(driver: AsyncDriver = Depends(get_driver)):
-    """Return all relationships between Query/Finding/Source nodes."""
+    """Return all relationships between graph nodes."""
     return GraphEdgesResponse(edges=await _load_edges(driver))

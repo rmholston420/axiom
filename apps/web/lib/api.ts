@@ -29,6 +29,19 @@ export interface GraphData {
   links: { source: string; target: string; type: string }[];
 }
 
+export interface AxiomRecord {
+  id?: string;
+  axiom_id?: string;
+  label: string;
+  statement: string;
+  justification: string;
+  confidence: number;
+  approved?: boolean;
+  eval_reason?: string;
+  created_at: string;
+  persisted?: boolean;
+}
+
 export interface SettingsData {
   axiom_model_planner: string;
   axiom_model_synthesizer: string;
@@ -94,6 +107,10 @@ export async function createJob(query: string): Promise<Job> {
 
 export async function fetchGraph(): Promise<GraphData> {
   return getJson<GraphData>(`${API_BASE}/graph`);
+}
+
+export async function fetchAxioms(limit = 25): Promise<AxiomRecord[]> {
+  return getJson<AxiomRecord[]>(`${API_BASE}/axioms?limit=${encodeURIComponent(String(limit))}`);
 }
 
 export async function fetchSettings(): Promise<SettingsData> {

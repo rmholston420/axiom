@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Shell from "@/components/Shell";
-import { fetchGraph, type GraphData } from "@/lib/api";
+import { fetchAxioms, fetchGraph, type AxiomRecord, type GraphData } from "@/lib/api";
 import { RefreshCw, Loader2, Box, Orbit } from "lucide-react";
 
 const ForceGraph2D = dynamic(
@@ -33,6 +33,7 @@ type GraphLink = {
 
 export default function GraphPage() {
   const [data, setData] = useState<GraphData | null>(null);
+  const [axioms, setAxioms] = useState<AxiomRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<GraphMode>("2d");
@@ -46,8 +47,9 @@ export default function GraphPage() {
     setLoading(true);
     setError("");
     try {
-      const d = await fetchGraph();
+      const [d, a] = await Promise.all([fetchGraph(), fetchAxioms(25)]);
       setData(d);
+      setAxioms(a);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -63,6 +65,7 @@ export default function GraphPage() {
     Query: "#4f98a3",
     Finding: "#6daa45",
     Source: "#da7101",
+    Axiom: "#d163a7",
   };
 
   const graphData = useMemo(() => {
@@ -238,6 +241,49 @@ export default function GraphPage() {
           {mode === "2d"
           ? "Drag to pan, scroll to zoom, hover nodes to highlight connected links, click to pin details."
           : "Drag to orbit, scroll to zoom, hover nodes to highlight connected links, click to pin details."}
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: "0.75rem",
+          marginBottom: "1rem",
+        }}
+      >
+        <div
+          style={{
+            padding: "0.9rem 1rem",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-lg)",
+          }}
+        >
+          <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Nodes</div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text)", marginTop: "0.25rem" }}>{graphData?.nodes.length ?? 0}</div>
+        </div>
+        <div
+          style={{
+            padding: "0.9rem 1rem",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-lg)",
+          }}
+        >
+          <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Links</div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text)", marginTop: "0.25rem" }}>{graphData?.links.length ?? 0}</div>
+        </div>
+        <div
+          style={{
+            padding: "0.9rem 1rem",
+            background: "var(--color-surface)",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-lg)",
+          }}
+        >
+          <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Axioms</div>
+          <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-text)", marginTop: "0.25rem" }}>{axioms.length}</div>
         </div>
       </div>
 
@@ -438,6 +484,138 @@ export default function GraphPage() {
           </div>
         )}
       </div>
+
+      <div
+        style={{
+          marginTop: "1.5rem",
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-lg)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            padding: "1rem 1rem 0.5rem",
+            borderBottom: "1px solid var(--color-border)",
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-text)" }}>Recent axioms</h2>
+          <p style={{ margin: "0.35rem 0 0", fontSize: "0.875rem", color: "var(--color-text-muted)" }}>
+            Latest persisted axioms from the axiomatizer service.
+          </p>
+        </div>
+
+        {axioms.length === 0 ? (
+          <div style={{ padding: "1rem", color: "var(--color-text-muted)" }}>
+            No axioms have been persisted yet.
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <caption style={{ position: "absolute", left: "-9999px" }}>
+                Recent axioms persisted by the axiomatizer service
+              </caption>
+              <thead>
+                <tr style={{ background: "var(--color-surface-2)" }}>
+                  <th scope="col" style={{ textAlign: "left", padding: "0.75rem 1rem", fontSize: "0.8rem", color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-border)" }}>Label</th>
+                  <th scope="col" style={{ textAlign: "left", padding: "0.75rem 1rem", fontSize: "0.8rem", color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-border)" }}>Statement</th>
+                  <th scope="col" style={{ textAlign: "left", padding: "0.75rem 1rem", fontSize: "0.8rem", color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-border)" }}>Approval</th>
+                  <th scope="col" style={{ textAlign: "left", padding: "0.75rem 1rem", fontSize: "0.8rem", color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-border)" }}>Confidence</th>
+                  <th scope="col" style={{ textAlign: "left", padding: "0.75rem 1rem", fontSize: "0.8rem", color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-border)" }}>Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {axioms.map((axiom) => (
+                  <tr key={axiom.id ?? axiom.axiom_id ?? `${axiom.label}-${axiom.created_at}`}>
+                    <th
+                      scope="row"
+                      style={{
+                        verticalAlign: "top",
+                        textAlign: "left",
+                        padding: "0.9rem 1rem",
+                        borderBottom: "1px solid var(--color-border)",
+                        color: "var(--color-text)",
+                        minWidth: "14rem",
+                      }}
+                    >
+                      <div style={{ fontWeight: 600 }}>{axiom.label || "Untitled axiom"}</div>
+                      {axiom.eval_reason ? (
+                        <div style={{ marginTop: "0.4rem", fontSize: "0.75rem", color: "var(--color-text-muted)", lineHeight: 1.5 }}>
+                          {axiom.eval_reason}
+                        </div>
+                      ) : null}
+                    </th>
+                    <td
+                      style={{
+                        verticalAlign: "top",
+                        padding: "0.9rem 1rem",
+                        borderBottom: "1px solid var(--color-border)",
+                        color: "var(--color-text)",
+                        minWidth: "28rem",
+                      }}
+                    >
+                      <div>{axiom.statement}</div>
+                      {axiom.justification ? (
+                        <div style={{ marginTop: "0.45rem", fontSize: "0.78rem", color: "var(--color-text-muted)", lineHeight: 1.55 }}>
+                          {axiom.justification}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td
+                      style={{
+                        verticalAlign: "top",
+                        padding: "0.9rem 1rem",
+                        borderBottom: "1px solid var(--color-border)",
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          padding: "0.2rem 0.5rem",
+                          borderRadius: "9999px",
+                          fontSize: "0.75rem",
+                          fontWeight: 600,
+                          border: `1px solid ${axiom.approved === true ? "color-mix(in oklab, var(--color-success) 45%, transparent)" : axiom.approved === false ? "color-mix(in oklab, var(--color-error) 45%, transparent)" : "var(--color-border)"}`,
+                          color: axiom.approved === true ? "var(--color-success)" : axiom.approved === false ? "var(--color-error)" : "var(--color-text-muted)",
+                          background: axiom.approved === true ? "color-mix(in oklab, var(--color-success) 12%, transparent)" : axiom.approved === false ? "color-mix(in oklab, var(--color-error) 12%, transparent)" : "transparent",
+                        }}
+                      >
+                        {axiom.approved === true ? "Approved" : axiom.approved === false ? "Rejected" : "Unknown"}
+                      </span>
+                    </td>
+                    <td
+                      style={{
+                        verticalAlign: "top",
+                        padding: "0.9rem 1rem",
+                        borderBottom: "1px solid var(--color-border)",
+                        color: "var(--color-text-muted)",
+                        fontVariantNumeric: "tabular-nums",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {typeof axiom.confidence === "number" ? axiom.confidence.toFixed(2) : "—"}
+                    </td>
+                    <td
+                      style={{
+                        verticalAlign: "top",
+                        padding: "0.9rem 1rem",
+                        borderBottom: "1px solid var(--color-border)",
+                        color: "var(--color-text-muted)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {axiom.created_at ? new Date(axiom.created_at).toLocaleString() : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
     </Shell>
   );
 }
