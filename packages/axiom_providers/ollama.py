@@ -12,20 +12,23 @@ class OllamaProvider:
         self._base = settings.axiom_ollama_base_url.rstrip("/")
 
     async def generate(self, model: str, prompt: str, system: str = "") -> str:
-        """Call /api/generate and return the full response text."""
-        payload: dict = {
+        """Call Ollama's OpenAI-compatible chat completions endpoint and return text."""
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
             "model": model,
-            "prompt": prompt,
+            "messages": messages,
             "stream": False,
         }
-        if system:
-            payload["system"] = system
 
         async with httpx.AsyncClient(timeout=120.0) as client:
-            resp = await client.post(f"{self._base}/api/generate", json=payload)
+            resp = await client.post(f"{self._base}/v1/chat/completions", json=payload)
             resp.raise_for_status()
             data = resp.json()
-            return data.get("response", "")
+            return data["choices"][0]["message"]["content"]
 
     async def list_models(self) -> list[str]:
         """Return a list of locally available model names."""
@@ -33,3 +36,10 @@ class OllamaProvider:
             resp = await client.get(f"{self._base}/api/tags")
             resp.raise_for_status()
             return [m["name"] for m in resp.json().get("models", [])]
+
+    async def healthcheck(self) -> dict:
+        """Return model inventory for fast debugging."""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(f"{self._base}/api/tags")
+            resp.raise_for_status()
+            return resp.json()
