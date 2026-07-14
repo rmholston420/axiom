@@ -74,14 +74,29 @@ export default function GraphPage() {
       type: String(node.type),
     }));
 
-    const links: GraphLink[] = data.links.map((link, index) => ({
-      id: `${String(link.source)}-${String(link.target)}-${String(link.type)}-${index}`,
-      source: String(link.source),
-      target: String(link.target),
-      type: String(link.type),
-    }));
+    const nodeIds = new Set(nodes.map((node) => node.id));
+
+    const links: GraphLink[] = data.links
+      .map((link, index) => ({
+        id: `${String(link.source)}-${String(link.target)}-${String(link.type)}-${index}`,
+        source: String(link.source),
+        target: String(link.target),
+        type: String(link.type),
+      }))
+      .filter((link) => nodeIds.has(String(link.source)) && nodeIds.has(String(link.target)));
 
     return { nodes, links };
+  }, [data]);
+
+  useEffect(() => {
+    if (!data) return;
+    const nodeIds = new Set(data.nodes.map((node) => String(node.id)));
+    const missing = data.links.filter(
+      (link) => !nodeIds.has(String(link.source)) || !nodeIds.has(String(link.target)),
+    );
+    if (missing.length > 0) {
+      console.warn("[graph] Dropped orphan links", missing.slice(0, 10));
+    }
   }, [data]);
 
   const neighborIds = useMemo(() => {

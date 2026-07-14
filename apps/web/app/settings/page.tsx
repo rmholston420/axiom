@@ -6,15 +6,18 @@ import Shell from "@/components/Shell";
 import { fetchModels, fetchSettings, saveSettings, type SettingsData } from "@/lib/api";
 
 const defaultSettings: SettingsData = {
-  model_planner: "",
-  model_synthesizer: "",
-  model_code: "",
-  model_critic: "",
-  breadth: 4,
-  depth: 3,
-  max_results_per_query: 5,
-  council_enabled: true,
-  axiomatizer_enabled: false,
+  axiom_model_planner: "",
+  axiom_model_synthesizer: "",
+  axiom_model_code: "",
+  axiom_model_critic: "",
+  axiom_model_chairman: "",
+  axiom_model_axiomatizer: "",
+  axiom_breadth: 4,
+  axiom_depth: 3,
+  axiom_max_results_per_query: 5,
+  axiom_council_size: 3,
+  axiom_council_enabled: true,
+  axiom_axiomatizer_enabled: false,
 };
 
 function fieldStyle(): React.CSSProperties {
@@ -76,6 +79,15 @@ export default function SettingsPage() {
       setSaving(false);
     }
   }
+
+  const modelFields: Array<[keyof SettingsData, string]> = [
+    ["axiom_model_planner", "Planner"],
+    ["axiom_model_synthesizer", "Synthesizer"],
+    ["axiom_model_code", "Code"],
+    ["axiom_model_critic", "Critic"],
+    ["axiom_model_chairman", "Chairman"],
+    ["axiom_model_axiomatizer", "Axiomatizer"],
+  ];
 
   return (
     <Shell>
@@ -153,20 +165,13 @@ export default function SettingsPage() {
             >
               <h2 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem" }}>Models</h2>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "1rem" }}>
-                {[
-                  ["model_planner", "Planner"],
-                  ["model_synthesizer", "Synthesizer"],
-                  ["model_code", "Code"],
-                  ["model_critic", "Critic"],
-                ].map(([key, label]) => (
-                  <label key={key} style={{ display: "grid", gap: "0.45rem" }}>
+                {modelFields.map(([key, label]) => (
+                  <label key={String(key)} style={{ display: "grid", gap: "0.45rem" }}>
                     <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{label}</span>
                     {models.length > 0 ? (
                       <select
-                        value={settings[key as keyof SettingsData] as string}
-                        onChange={(e) =>
-                          update(key as keyof SettingsData, e.target.value as never)
-                        }
+                        value={settings[key] as string}
+                        onChange={(e) => update(key, e.target.value as SettingsData[typeof key])}
                         style={fieldStyle()}
                       >
                         <option value="">Select a model</option>
@@ -178,10 +183,8 @@ export default function SettingsPage() {
                       </select>
                     ) : (
                       <input
-                        value={settings[key as keyof SettingsData] as string}
-                        onChange={(e) =>
-                          update(key as keyof SettingsData, e.target.value as never)
-                        }
+                        value={settings[key] as string}
+                        onChange={(e) => update(key, e.target.value as SettingsData[typeof key])}
                         style={fieldStyle()}
                       />
                     )}
@@ -204,8 +207,8 @@ export default function SettingsPage() {
                   <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Breadth</span>
                   <input
                     type="number"
-                    value={settings.breadth}
-                    onChange={(e) => update("breadth", Number(e.target.value))}
+                    value={settings.axiom_breadth}
+                    onChange={(e) => update("axiom_breadth", Number(e.target.value))}
                     style={fieldStyle()}
                   />
                 </label>
@@ -214,8 +217,8 @@ export default function SettingsPage() {
                   <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Depth</span>
                   <input
                     type="number"
-                    value={settings.depth}
-                    onChange={(e) => update("depth", Number(e.target.value))}
+                    value={settings.axiom_depth}
+                    onChange={(e) => update("axiom_depth", Number(e.target.value))}
                     style={fieldStyle()}
                   />
                 </label>
@@ -224,40 +227,38 @@ export default function SettingsPage() {
                   <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Max results / query</span>
                   <input
                     type="number"
-                    value={settings.max_results_per_query}
-                    onChange={(e) => update("max_results_per_query", Number(e.target.value))}
+                    value={settings.axiom_max_results_per_query}
+                    onChange={(e) => update("axiom_max_results_per_query", Number(e.target.value))}
                     style={fieldStyle()}
                   />
                 </label>
-              </div>
-            </section>
 
-            <section
-              style={{
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-lg)",
-                padding: "1rem",
-              }}
-            >
-              <h2 style={{ fontSize: "1rem", fontWeight: 700, marginBottom: "1rem" }}>Features</h2>
-              <div style={{ display: "grid", gap: "0.75rem" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
+                <label style={{ display: "grid", gap: "0.45rem" }}>
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Council size</span>
                   <input
-                    type="checkbox"
-                    checked={settings.council_enabled}
-                    onChange={(e) => update("council_enabled", e.target.checked)}
+                    type="number"
+                    value={settings.axiom_council_size}
+                    onChange={(e) => update("axiom_council_size", Number(e.target.value))}
+                    style={fieldStyle()}
                   />
-                  <span>Council enabled</span>
                 </label>
 
-                <label style={{ display: "flex", alignItems: "center", gap: "0.7rem" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "1.8rem" }}>
                   <input
                     type="checkbox"
-                    checked={settings.axiomatizer_enabled}
-                    onChange={(e) => update("axiomatizer_enabled", e.target.checked)}
+                    checked={settings.axiom_council_enabled}
+                    onChange={(e) => update("axiom_council_enabled", e.target.checked)}
                   />
-                  <span>Axiomatizer enabled</span>
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Council enabled</span>
+                </label>
+
+                <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "1.8rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.axiom_axiomatizer_enabled}
+                    onChange={(e) => update("axiom_axiomatizer_enabled", e.target.checked)}
+                  />
+                  <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Axiomatizer enabled</span>
                 </label>
               </div>
             </section>
