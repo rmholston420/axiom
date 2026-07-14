@@ -3,9 +3,16 @@ VENV_DIR := .venv
 VENV_BIN := $(VENV_DIR)/bin
 PORT ?= 7200
 
-export PYTHONPATH := $(PWD)/packages:$(PWD)
-
 .PHONY: venv install api api-dev api-stop api-restart health lint test
+
+install-packages:
+	. $(VENV_BIN)/activate && \
+		pip install -e packages/axiom_contracts && \
+		pip install -e packages/axiom_core && \
+		pip install -e packages/axiom_graph && \
+		pip install -e packages/axiom_providers && \
+		pip install -e packages/axiom_research
+
 
 venv:
 	$(PYTHON) -m venv $(VENV_DIR)
@@ -31,12 +38,10 @@ api-stop:
 
 api:
 	. $(VENV_BIN)/activate && \
-	PYTHONPATH="$(PYTHONPATH)" \
 	python -m uvicorn apps.api.main:app --host 0.0.0.0 --port $(PORT)
 
 api-dev:
 	. $(VENV_BIN)/activate && \
-	PYTHONPATH="$(PYTHONPATH)" \
 	python -m uvicorn apps.api.main:app --host 0.0.0.0 --port $(PORT) --reload
 
 api-restart: api-stop
