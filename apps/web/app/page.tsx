@@ -93,6 +93,7 @@ export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>([]);
   const [streamReport, setStreamReport] = useState<string>("");
