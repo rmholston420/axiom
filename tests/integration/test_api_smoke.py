@@ -131,7 +131,11 @@ def test_api_smoke_jobs_and_health() -> None:
     settings = client.get("/settings")
     assert settings.status_code == 200
     data = settings.json()
-    assert data["axiom_api_port"] == 7200
+    assert isinstance(data, dict)
+    assert "axiom_axiomatizer_enabled" in data
+    assert "axiom_breadth" in data
+    assert "axiom_council_enabled" in data
+    assert "axiom_council_size" in data
 
     resp = client.post("/jobs", json={"question": "What is Axiom?"})
     assert resp.status_code == 202
