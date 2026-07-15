@@ -56,3 +56,14 @@ pull-models:
 	@echo "Bootstrapping Ollama models via scripts/pull-models.sh"
 	@./scripts/pull-models.sh
 
+
+dev: api
+
+api:
+	PYTHONPATH=packages uvicorn apps.api.main:app --host 0.0.0.0 --port 7200 --reload
+
+council:
+	PYTHONPATH=packages uvicorn apps.council.main:app --host 0.0.0.0 --port 7201 --reload
+
+axiomatizer:
+	PYTHONPATH=packages uvicorn apps.axiomatizer.main:app --host 0.0.0.0 --port 7202 --reload

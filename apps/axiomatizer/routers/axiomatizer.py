@@ -7,8 +7,8 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
-from neo4j import AsyncGraphDatabase
+from fastapi import APIRouter, HTTPException, Request
+from neo4j import AsyncDriver, AsyncGraphDatabase
 from pydantic import BaseModel, Field
 
 from axiom_core.settings import settings
@@ -112,20 +112,44 @@ async def _evaluate_axiom(ollama: OllamaProvider, statement: str, justification:
         return {"approved": True, "reason": "evaluation parse failed — defaulting to approved"}
 
 
-async def _persist_axiom(
-    axiom_id: str,
-    label: str,
-    statement: str,
-    justification: str,
-    confidence: float,
-    approved: bool,
-    eval_reason: str,
-    created_at: str,
-) -> None:
+async def _get_driver(request: Request) -> tuple[AsyncDriver, bool]:
+    state = getattr(request.app, "state", None)
+    driver = getattr(state, "driver", None) if state else None
+    if driver is not None:
+        return driver, False
     driver = AsyncGraphDatabase.driver(
         settings.axiom_neo4j_uri,
         auth=(settings.axiom_neo4j_user, settings.axiom_neo4j_password),
     )
+    return driver, True
+
+
+@router.post("", response_model=AxiomResponse)
+async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse:
+    if not settings.axiom_axiomatizer_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Axiomatizer is disabled. Set AXIOM_AXIOMATIZER_ENABLED=true to enable.",
+        )
+
+    ollama = OllamaProvider()
+    created_at = datetime.now(timezone.utc).isoformat()
+    axiom_id = str(uuid.uuid4())
+
+    proposal = await _propose_axiom(ollama, body.source_text, body.context)
+    statement = proposal["statement"]
+    justification = proposal["justification"]
+    confidence = proposal["confidence"]
+
+    if not statement:
+        raise HTTPException(status_code=502, detail="Axiomatizer returned an empty statement.")
+
+    evaluation = await _evaluate_axiom(ollama, statement, justification)
+    approved = evaluation["approved"]
+    eval_reason = evaluation["reason"]
+
+    label = body.label or statement[:60]
+    driver, should_close = await _get_driver(request)
     cypher = """
     MERGE (a:Axiom {id: $id})
     ON CREATE SET
@@ -158,44 +182,12 @@ async def _persist_axiom(
                 created_at=created_at,
             )
     finally:
-        await driver.close()
-
-
-@router.post("", response_model=AxiomResponse)
-async def run_axiomatizer(body: AxiomRequest) -> AxiomResponse:
-    if not settings.axiom_axiomatizer_enabled:
-        raise HTTPException(status_code=503, detail="Axiomatizer is disabled. Set AXIOM_AXIOMATIZER_ENABLED=true to enable.")
-
-    ollama = OllamaProvider()
-    created_at = datetime.now(timezone.utc).isoformat()
-    axiom_id = str(uuid.uuid4())
-
-    proposal = await _propose_axiom(ollama, body.source_text, body.context)
-    statement = proposal["statement"]
-    justification = proposal["justification"]
-    confidence = proposal["confidence"]
-
-    if not statement:
-        raise HTTPException(status_code=502, detail="Axiomatizer returned an empty statement.")
-
-    evaluation = await _evaluate_axiom(ollama, statement, justification)
-    approved = evaluation["approved"]
-    eval_reason = evaluation["reason"]
-
-    await _persist_axiom(
-        axiom_id=axiom_id,
-        label=body.label or statement[:60],
-        statement=statement,
-        justification=justification,
-        confidence=confidence,
-        approved=approved,
-        eval_reason=eval_reason,
-        created_at=created_at,
-    )
+        if should_close:
+            await driver.close()
 
     return AxiomResponse(
         axiom_id=axiom_id,
-        label=body.label or statement[:60],
+        label=label,
         statement=statement,
         justification=justification,
         confidence=confidence,
@@ -205,14 +197,11 @@ async def run_axiomatizer(body: AxiomRequest) -> AxiomResponse:
 
 
 @router.get("/axioms")
-async def list_axioms(limit: int = 50):
+async def list_axioms(limit: int = 50, request: Request = None):
     if not settings.axiom_axiomatizer_enabled:
         raise HTTPException(status_code=503, detail="Axiomatizer is disabled.")
 
-    driver = AsyncGraphDatabase.driver(
-        settings.axiom_neo4j_uri,
-        auth=(settings.axiom_neo4j_user, settings.axiom_neo4j_password),
-    )
+    driver, should_close = await _get_driver(request)
     cypher = """
     MATCH (a:Axiom)
     RETURN a
@@ -224,5 +213,6 @@ async def list_axioms(limit: int = 50):
             result = await session.run(cypher, limit=limit)
             rows = [dict(r["a"]) async for r in result]
     finally:
-        await driver.close()
+        if should_close:
+            await driver.close()
     return rows
