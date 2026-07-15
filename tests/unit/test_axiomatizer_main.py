@@ -38,8 +38,8 @@ def test_health_route_returns_healthy_service_status():
 
 
 @pytest.mark.unit
-def test_axiomatizer_router_is_registered():
-    paths = {route.path for route in app.routes}
+def test_axiomatizer_router_paths_are_registered():
+    paths = {route.path for route in app.routes if hasattr(route, "path")}
     assert "/" in paths
     assert "/health" in paths
     assert "/axiomatizer" in paths
