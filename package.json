@@ -4,7 +4,10 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint"
+    "lint": "turbo run lint",
+    "test:web": "pnpm --dir apps/web test:e2e",
+    "test:web:headed": "pnpm --dir apps/web test:e2e:headed",
+    "test:web:ui": "pnpm --dir apps/web test:e2e:ui"
   },
   "devDependencies": {
     "turbo": "^2.0.0"
