@@ -431,3 +431,18 @@ export default function GraphClient({
     </Shell>
   );
 }
+
+
+function getLinkEndpointId(endpoint: string | number | GraphNodeDatum | undefined): string {
+  if (typeof endpoint === "string" || typeof endpoint === "number") {
+    return String(endpoint);
+  }
+  if (endpoint && typeof endpoint === "object" && "id" in endpoint && endpoint.id != null) {
+    return String(endpoint.id);
+  }
+  return "unknown";
+}
+
+function getLinkRelationship(link: ForceLinkObject): string {
+  return link.relationship ?? "related_to";
+}
