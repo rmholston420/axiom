@@ -35,11 +35,16 @@ async def test_research_job_completes() -> None:
 
         # Poll until complete or timeout
         deadline = asyncio.get_event_loop().time() + E2E_TIMEOUT
+        poll_count = 0
         while asyncio.get_event_loop().time() < deadline:
             status_resp = await client.get(f"{AXIOM_API_URL}/jobs/{job_id}")
             status_resp.raise_for_status()
             data = status_resp.json()
             state = data.get("status") or data.get("state", "")
+            poll_count += 1
+            if poll_count % 5 == 0:
+                # Lightweight debug logging to aid future e2e diagnosis
+                print(f"[e2e] poll {poll_count}: job_id={job_id} state={state!r}")
             if state in ("done", "complete", "completed", "finished"):
                 report = data.get("report") or data.get("result", "")
                 assert report, "Job completed but report is empty"
