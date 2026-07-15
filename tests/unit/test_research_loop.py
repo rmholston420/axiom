@@ -206,3 +206,64 @@ async def test_run_handles_empty_plan(monkeypatch):
     assert result.query_id == "query-123"
     assert result.findings == []
     assert result.report == "report for Empty question (0 findings)"
+
+@pytest.mark.unit
+async def test_researchloop_canonical_axiom_queries():
+    class FakePlanner:
+        async def plan(self, question, breadth=None):
+            if question == "What is axiom?":
+                return [
+                    "axiom definition philosophy",
+                    "axiom definition mathematics",
+                    "axiom meaning logic reasoning",
+                ]
+            if question == "What is Axiom Local Research Workbench?":
+                return [
+                    "Axiom Local Research Workbench overview",
+                    "Axiom API Axiom Web architecture",
+                ]
+            return [question]
+
+    class FakeRetriever:
+        async def retrieve(self, query, max_results=None):
+            Result = type(
+                "Result",
+                (),
+                {"title": query, "url": "", "snippet": ""},
+            )
+            return [Result()]
+
+    class FakeExtractor:
+        async def extract(self, question, sub_query, results):
+            if "Local Research Workbench" in sub_query:
+                return "Axiom is a Local Research Workbench."
+            if "Axiom API" in sub_query:
+                return "Axiom includes API and web-facing services."
+            if "philosophy" in sub_query:
+                return "In philosophy, an axiom is a foundational starting point."
+            if "mathematics" in sub_query:
+                return "In mathematics, an axiom is a basic statement accepted without proof."
+            return "In logic and reasoning, axioms serve as first principles."
+
+    class FakeSynthesizer:
+        async def synthesize(self, question, findings):
+            text = " ".join(f.summary for f in findings)
+            return f"{question} => {text}"
+
+    from packages.axiom_research.loop import ResearchLoop
+
+    loop = ResearchLoop(
+        planner=FakePlanner(),
+        retriever=FakeRetriever(),
+        extractor=FakeExtractor(),
+        synthesizer=FakeSynthesizer(),
+    )
+
+    general = await loop.run("What is axiom?")
+    product = await loop.run("What is Axiom Local Research Workbench?")
+
+    assert "philosophy" in general["report"].lower()
+    assert "mathematics" in general["report"].lower()
+    assert "local research workbench" in product["report"].lower()
+    assert "api and web-facing services" in product["report"].lower()
+
