@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Shell from "@/components/Shell";
 import { fetchAxioms, fetchGraph, type AxiomRecord, type GraphData } from "@/lib/api";
 import { RefreshCw, Loader2, Box, Orbit } from "lucide-react";
+import type { ForceGraphMethods } from "react-force-graph-2d";
+import type { ForceGraphInstance } from "react-force-graph-3d";
 
 const ForceGraph2D = dynamic(
   () => import("react-force-graph-2d").then((mod) => mod.default),
