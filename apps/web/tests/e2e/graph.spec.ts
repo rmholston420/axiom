@@ -11,17 +11,17 @@ test.describe("Graph page", () => {
 
   test("renders graph KPI labels", async ({ page }) => {
     await page.goto("/graph");
-    await expect(page.getByText("Nodes")).toBeVisible();
-    await expect(page.getByText("Links")).toBeVisible();
-    await expect(page.getByText("Axioms")).toBeVisible();
+    await expect(page.getByText("Nodes", { exact: true })).toBeVisible();
+    await expect(page.getByText("Links", { exact: true })).toBeVisible();
+    await expect(page.getByText("Axioms", { exact: true })).toBeVisible();
   });
 
   test("renders graph legend labels", async ({ page }) => {
     await page.goto("/graph");
-    await expect(page.getByText("Query")).toBeVisible();
-    await expect(page.getByText("Finding")).toBeVisible();
-    await expect(page.getByText("Source")).toBeVisible();
-    await expect(page.getByText("Axiom")).toBeVisible();
+    await expect(page.getByText("Query", { exact: true })).toBeVisible();
+    await expect(page.getByText("Finding", { exact: true })).toBeVisible();
+    await expect(page.getByText("Source", { exact: true })).toBeVisible();
+    await expect(page.getByRole("main").getByText("Axiom", { exact: true })).toBeVisible();
   });
 
   test("renders recent axioms panel", async ({ page }) => {

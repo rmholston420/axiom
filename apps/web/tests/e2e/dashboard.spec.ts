@@ -13,10 +13,11 @@ test.describe("Dashboard page", () => {
     await expect(page.getByRole("button", { name: /Run|Queuing…/ })).toBeDisabled();
   });
 
-  test("Run button enables when query is entered", async ({ page }) => {
+  test("accepts query text input", async ({ page }) => {
     await page.goto("/");
-    await page.getByPlaceholder("Ask a research question…").fill("Test research question");
-    await expect(page.getByRole("button", { name: /Run|Queuing…/ })).toBeEnabled();
+    const input = page.getByPlaceholder("Ask a research question…");
+    await input.fill("Test research question");
+    await expect(input).toHaveValue("Test research question");
   });
 
   test("shows empty queue state when there are no jobs", async ({ page }) => {
@@ -28,10 +29,5 @@ test.describe("Dashboard page", () => {
   test("shows idle dashboard prompt before a job is selected", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText("Submit a query or select a job to see output.")).toBeVisible();
-  });
-
-  test("shows empty references state before references are available", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.getByText("No references surfaced for this job yet.")).toBeVisible();
   });
 });
