@@ -1,25 +1,26 @@
 import { test, expect } from "@playwright/test";
+import { openDashboard, navDashboard, navGraph, navSettings } from "./helpers";
 
 test.describe("Navigation", () => {
   test("renders all primary nav links", async ({ page }) => {
-    await page.goto("/");
+    await openDashboard(page);
 
-    await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Graph" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+    await expect(navDashboard(page)).toBeVisible();
+    await expect(navGraph(page)).toBeVisible();
+    await expect(navSettings(page)).toBeVisible();
   });
 
   test("navigates to Graph when clicking nav link", async ({ page }) => {
-    await page.goto("/");
+    await openDashboard(page);
 
-    await page.getByRole("link", { name: "Graph" }).click();
+    await navGraph(page).click();
     await expect(page.getByRole("heading", { name: "Graph" })).toBeVisible();
   });
 
   test("navigates to Settings when clicking nav link", async ({ page }) => {
-    await page.goto("/");
+    await openDashboard(page);
 
-    await page.getByRole("link", { name: "Settings" }).click();
+    await navSettings(page).click();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   });
 });
