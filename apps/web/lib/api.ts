@@ -11,6 +11,7 @@ export type FindingResult = {
 };
 
 export type Finding = {
+  index?: number;
   sub_query?: string;
   summary?: string;
   results?: FindingResult[];
@@ -33,6 +34,7 @@ export interface Job {
   updated_at: string;
   report?: string;
   error?: string;
+  findings?: Finding[];
   references?: JobReference[];
   sources?: JobReference[];
 }
