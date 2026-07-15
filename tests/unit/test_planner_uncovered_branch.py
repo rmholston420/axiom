@@ -1,6 +1,6 @@
 import pytest
 
-from packages.axiom_research.planner import Planner
+from packages.axiom_research.planner import Planner, SubQuery
 
 
 class DummyProvider:
@@ -15,5 +15,7 @@ async def test_plan_fallback_to_lines_when_json_parse_fails():
 
     plan = await planner.plan("question", breadth=2)
 
-    assert isinstance(plan, list)
-    assert plan == ["first", "second"]
+    assert plan == [
+        SubQuery(text="not json at all", depth=0),
+        SubQuery(text="first", depth=0),
+    ]
