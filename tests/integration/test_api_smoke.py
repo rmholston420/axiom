@@ -179,4 +179,9 @@ def test_api_smoke_graph_route() -> None:
     assert "links" in data
     assert isinstance(data["nodes"], list)
     assert isinstance(data["links"], list)
+    assert isinstance(data, dict)
+    assert "nodes" in data
+    assert "links" in data
+    assert isinstance(data["nodes"], list)
+    assert isinstance(data["links"], list)
 
