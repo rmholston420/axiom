@@ -37,16 +37,41 @@ class GraphResponse(BaseModel):
     links: list[GraphEdge]
 
 
-NODE_ID_EXPR = "coalesce(n.id, n.url, n.label, n.text, n.title)"
-EDGE_SOURCE_ID_EXPR = "coalesce(a.id, a.url, a.label, a.text, a.title)"
-EDGE_TARGET_ID_EXPR = "coalesce(b.id, b.url, b.label, b.text, b.title)"
+NODE_ID_EXPR = (
+    "coalesce("
+    "coalesce(n.id, n.url, n.text, n.title), "
+    "labels(n)[0]"
+    ")"
+)
+EDGE_SOURCE_ID_EXPR = (
+    "coalesce("
+    "coalesce(a.id, a.url, a.text, a.title), "
+    "labels(a)[0]"
+    ")"
+)
+EDGE_TARGET_ID_EXPR = (
+    "coalesce("
+    "coalesce(b.id, b.url, b.text, b.title), "
+    "labels(b)[0]"
+    ")"
+)
 
 NODES_CYPHER = f"""
 MATCH (n)
 WHERE n:Query OR n:Finding OR n:Source OR n:Axiom
 RETURN
     {NODE_ID_EXPR} AS id,
-    coalesce(n.label, n.statement, n.text, n.title, n.url, labels(n)[0]) AS label,
+    coalesce(
+        CASE
+            WHEN exists(n.label) THEN n.label
+            WHEN exists(n.statement) THEN n.statement
+            WHEN exists(n.title) THEN n.title
+            WHEN exists(n.text) THEN n.text
+            WHEN exists(n.url) THEN n.url
+            ELSE labels(n)[0]
+        END,
+        labels(n)[0]
+    ) AS label,
     labels(n)[0] AS type,
     properties(n) AS props
 ORDER BY coalesce(n.created_at, "")
