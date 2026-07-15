@@ -1,10 +1,6 @@
-const API_BASE = process.env.API_ORIGIN ?? "http://axiom-api:7200";
+import { fetchUpstream } from "@/lib/server-api";
 
-export async function GET() {
-  const res = await fetch(`${API_BASE}/models`, { cache: "no-store" });
-  const text = await res.text();
-  return new Response(text, {
-    status: res.status,
-    headers: { "content-type": res.headers.get("content-type") ?? "application/json" },
-  });
+export async function GET(req: Request) {
+  const search = new URL(req.url).search;
+  return fetchUpstream("/models", undefined, search);
 }

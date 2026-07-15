@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
+import { fetchUpstream } from "@/lib/server-api";
 
 export async function GET() {
-  return NextResponse.json({ ok: true });
+  return fetchUpstream("/health");
 }

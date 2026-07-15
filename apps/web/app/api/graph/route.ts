@@ -1,25 +1,6 @@
-const API_BASE = process.env.API_ORIGIN ?? "http://axiom-api:7200";
+import { fetchUpstream } from "@/lib/server-api";
 
-export async function GET() {
-  const candidates = ["/graph", "/graph/data", "/graphs", "/neo4j/graph"];
-  let lastStatus = 404;
-  let lastText = '{"detail":"No graph endpoint available on API"}';
-
-  for (const path of candidates) {
-    const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
-    const text = await res.text();
-    if (res.ok) {
-      return new Response(text, {
-        status: 200,
-        headers: { "content-type": res.headers.get("content-type") ?? "application/json" },
-      });
-    }
-    lastStatus = res.status;
-    lastText = text;
-  }
-
-  return new Response(lastText, {
-    status: lastStatus,
-    headers: { "content-type": "application/json" },
-  });
+export async function GET(req: Request) {
+  const search = new URL(req.url).search;
+  return fetchUpstream("/graph", undefined, search);
 }

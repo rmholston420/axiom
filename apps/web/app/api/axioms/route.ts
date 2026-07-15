@@ -1,30 +1,6 @@
-import { NextResponse } from "next/server";
+import { fetchUpstream } from "@/lib/server-api";
 
-const API_BASE = process.env.API_ORIGIN ?? "http://axiom-api:7200";
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const limit = searchParams.get("limit") ?? "25";
-
-  try {
-    const response = await fetch(
-      `${API_BASE}/axiomatizer/axioms?limit=${encodeURIComponent(limit)}`,
-      { cache: "no-store" },
-    );
-
-    const text = await response.text();
-
-    return new NextResponse(text, {
-      status: response.status,
-      headers: { "content-type": "application/json" },
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        detail: "Failed to fetch axioms",
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 502 },
-    );
-  }
+export async function GET(req: Request) {
+  const search = new URL(req.url).search;
+  return fetchUpstream("/axioms", undefined, search);
 }
