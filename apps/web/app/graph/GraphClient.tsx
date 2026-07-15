@@ -303,9 +303,9 @@ export default function GraphClient({
               if (relationship === "CONTRADICTS") return "rgba(245,158,11,0.8)";
               return "rgba(148,163,184,0.35)";
             }}
-            linkWidth={(link: GraphLinkDatum) => {
-              const sourceId = getNodeId(link.source);
-              const targetId = getNodeId(link.target);
+            linkWidth={(link: ForceLinkObject) => {
+              const sourceId = getLinkEndpointId(link.source);
+              const targetId = getLinkEndpointId(link.target);
               return neighborIds.has(sourceId) && neighborIds.has(targetId) ? 2.2 : 1;
             }}
           />
