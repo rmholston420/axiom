@@ -17,5 +17,5 @@ async def test_plan_fallback_to_lines_when_json_parse_fails():
 
     assert plan == [
         SubQuery(text="not json at all", depth=0),
-        SubQuery(text="first", depth=0),
+        SubQuery(text="- first", depth=0),
     ]
