@@ -207,63 +207,93 @@ async def test_run_handles_empty_plan(monkeypatch):
     assert result.findings == []
     assert result.report == "report for Empty question (0 findings)"
 
+
 @pytest.mark.unit
-async def test_researchloop_canonical_axiom_queries():
-    class FakePlanner:
+@pytest.mark.asyncio
+async def test_researchloop_canonical_axiom_queries(monkeypatch):
+    ensure_calls = []
+
+    async def fake_ensure_schema(driver):
+        ensure_calls.append(driver)
+
+    class CanonicalPlanner:
+        def __init__(self, ollama):
+            self.ollama = ollama
+            self.calls = []
+
         async def plan(self, question, breadth=None):
+            self.calls.append((question, breadth))
             if question == "What is axiom?":
                 return [
-                    "axiom definition philosophy",
-                    "axiom definition mathematics",
-                    "axiom meaning logic reasoning",
+                    types.SimpleNamespace(text="axiom definition philosophy"),
+                    types.SimpleNamespace(text="axiom definition mathematics"),
+                    types.SimpleNamespace(text="axiom meaning logic reasoning"),
                 ]
             if question == "What is Axiom Local Research Workbench?":
                 return [
-                    "Axiom Local Research Workbench overview",
-                    "Axiom API Axiom Web architecture",
+                    types.SimpleNamespace(text="Axiom Local Research Workbench overview"),
+                    types.SimpleNamespace(text="Axiom API Axiom Web architecture"),
                 ]
-            return [question]
+            return []
 
-    class FakeRetriever:
-        async def retrieve(self, query, max_results=None):
-            Result = type(
-                "Result",
-                (),
-                {"title": query, "url": "", "snippet": ""},
-            )
-            return [Result()]
+    class CanonicalRetriever:
+        def __init__(self, searxng):
+            self.searxng = searxng
+            self.calls = []
 
-    class FakeExtractor:
-        async def extract(self, question, sub_query, results):
-            if "Local Research Workbench" in sub_query:
+        async def retrieve(self, text):
+            self.calls.append(text)
+            slug = text.lower().replace(" ", "-")
+            return [types.SimpleNamespace(url=f"https://example.test/{slug}", title=text)]
+
+    class CanonicalExtractor:
+        def __init__(self, ollama):
+            self.ollama = ollama
+            self.calls = []
+
+        async def extract(self, subquery, results):
+            self.calls.append((subquery, [r.url for r in results]))
+            if "Local Research Workbench" in subquery:
                 return "Axiom is a Local Research Workbench."
-            if "Axiom API" in sub_query:
+            if "Axiom API" in subquery:
                 return "Axiom includes API and web-facing services."
-            if "philosophy" in sub_query:
+            if "philosophy" in subquery:
                 return "In philosophy, an axiom is a foundational starting point."
-            if "mathematics" in sub_query:
+            if "mathematics" in subquery:
                 return "In mathematics, an axiom is a basic statement accepted without proof."
             return "In logic and reasoning, axioms serve as first principles."
 
-    class FakeSynthesizer:
+    class CanonicalSynthesizer:
+        def __init__(self, ollama):
+            self.ollama = ollama
+            self.calls = []
+
         async def synthesize(self, question, findings):
+            self.calls.append((question, findings))
             text = " ".join(f.summary for f in findings)
             return f"{question} => {text}"
 
-    from packages.axiom_research.loop import ResearchLoop
+    DummyRepo.instances = []
+    monkeypatch.setattr(loop_module, "ensure_schema", fake_ensure_schema)
+    monkeypatch.setattr(loop_module, "GraphRepository", DummyRepo)
+    monkeypatch.setattr(loop_module, "Planner", CanonicalPlanner)
+    monkeypatch.setattr(loop_module, "Retriever", CanonicalRetriever)
+    monkeypatch.setattr(loop_module, "Extractor", CanonicalExtractor)
+    monkeypatch.setattr(loop_module, "Synthesizer", CanonicalSynthesizer)
+    monkeypatch.setattr(loop_module, "OllamaProvider", lambda: object())
+    monkeypatch.setattr(loop_module, "SearxngProvider", lambda: object())
 
-    loop = ResearchLoop(
-        planner=FakePlanner(),
-        retriever=FakeRetriever(),
-        extractor=FakeExtractor(),
-        synthesizer=FakeSynthesizer(),
-    )
+    loop = ResearchLoop(driver="driver-semantic")
 
-    general = await loop.run("What is axiom?")
-    product = await loop.run("What is Axiom Local Research Workbench?")
+    general = await loop.run("What is axiom?", breadth=3)
+    product = await loop.run("What is Axiom Local Research Workbench?", breadth=2)
 
-    assert "philosophy" in general["report"].lower()
-    assert "mathematics" in general["report"].lower()
-    assert "local research workbench" in product["report"].lower()
-    assert "api and web-facing services" in product["report"].lower()
-
+    assert ensure_calls == ["driver-semantic", "driver-semantic"]
+    assert loop._planner.calls == [
+        ("What is axiom?", 3),
+        ("What is Axiom Local Research Workbench?", 2),
+    ]
+    assert "philosophy" in general.report.lower()
+    assert "mathematics" in general.report.lower()
+    assert "local research workbench" in product.report.lower()
+    assert "api and web-facing services" in product.report.lower()
