@@ -1,5 +1,13 @@
 # Axiom
 
+## Releases
+
+Axiom uses [Semantic Versioning](https://semver.org/) and maintains release notes in [`CHANGELOG.md`](./CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+
+- Current stable snapshot: **v0.2.1** — green unit suite with ~97% coverage across apps and packages.
+- Previous release: **v0.2.0** — expanded unit coverage for API, planner, synthesizer, retriever, and queue worker paths.
+
+
 **Local Research Workbench**
 
 Axiom is a local-first, queue-based, graph-backed research system built as a monorepo.
