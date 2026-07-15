@@ -26,6 +26,7 @@ async def main(question: str) -> None:
     load_dotenv(repo_root / ".env")
 
     from neo4j import AsyncGraphDatabase
+
     from axiom_core.settings import settings
     from axiom_research.loop import ResearchLoop
 
