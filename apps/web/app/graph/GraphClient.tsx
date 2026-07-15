@@ -82,7 +82,7 @@ export default function GraphClient({
   const [mode, setMode] = useState<GraphMode>("2d");
   const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const fg2dRef = useRef<ForceGraphInstance | undefined>(undefined);
+  const fg2dRef = useRef<ForceGraphMethods<GraphNodeDatum, GraphLinkDatum> | undefined>(undefined);
   const fg3dRef = useRef<ForceGraphInstance | undefined>(undefined);
 
   const load = async () => {
@@ -270,7 +270,7 @@ export default function GraphClient({
             ref={fg2dRef}
             graphData={graphData}
             nodeLabel={(node: GraphNodeDatum) => `${getNodeLabel(node)} (${getNodeType(node)})`}
-            linkLabel={(link: GraphLinkDatum) => String(link.type ?? "")}
+            linkLabel={(link: ForceLinkObject) => getLinkRelationship(link)}
             nodeRelSize={7}
                         onNodeHover={(node: GraphNodeDatum | null) => setHoverNodeId(node?.id != null ? String(node.id) : null)}
             onNodeClick={(node: GraphNodeDatum) => setSelectedNodeId(node?.id != null ? String(node.id) : null)}
@@ -287,13 +287,11 @@ export default function GraphClient({
               ctx.fillStyle = isActive ? "#e5e7eb" : "rgba(148, 163, 184, 0.6)";
               ctx.fillText(String(node.label ?? node.id ?? "node"), (node.x ?? 0) + 10, (node.y ?? 0) + 4);
             }}
-            linkColor={(link: GraphLinkDatum) => {
-              const sourceId = getNodeId(link.source);
-              const targetId = getNodeId(link.target);
-              if (neighborIds.size === 0) return "rgba(148,163,184,0.35)";
-              return neighborIds.has(sourceId) && neighborIds.has(targetId)
-                ? "rgba(79,152,163,0.8)"
-                : "rgba(148,163,184,0.14)";
+            linkColor={(link: ForceLinkObject) => {
+              const relationship = getLinkRelationship(link);
+              if (relationship === "MENTIONS" || relationship === "SUPPORTS") return "rgba(79,163,163,0.8)";
+              if (relationship === "CONTRADICTS") return "rgba(245,158,11,0.8)";
+              return "rgba(148,163,184,0.35)";
             }}
             linkWidth={(link: GraphLinkDatum) => {
               const sourceId = getNodeId(link.source);
@@ -306,17 +304,15 @@ export default function GraphClient({
             ref={fg3dRef}
             graphData={graphData}
             nodeLabel={(node: GraphNodeDatum) => `${getNodeLabel(node)} (${getNodeType(node)})`}
-            linkLabel={(link: GraphLinkDatum) => String(link.type ?? "")}
+            linkLabel={(link: ForceLinkObject) => getLinkRelationship(link)}
             nodeAutoColorBy="type"
                         onNodeHover={(node: GraphNodeDatum | null) => setHoverNodeId(node?.id != null ? String(node.id) : null)}
             onNodeClick={(node: GraphNodeDatum) => setSelectedNodeId(node?.id != null ? String(node.id) : null)}
-            linkColor={(link: GraphLinkDatum) => {
-              const sourceId = getNodeId(link.source);
-              const targetId = getNodeId(link.target);
-              if (neighborIds.size === 0) return "rgba(148,163,184,0.35)";
-              return neighborIds.has(sourceId) && neighborIds.has(targetId)
-                ? "rgba(79,152,163,0.85)"
-                : "rgba(148,163,184,0.12)";
+            linkColor={(link: ForceLinkObject) => {
+              const relationship = getLinkRelationship(link);
+              if (relationship === "MENTIONS" || relationship === "SUPPORTS") return "rgba(79,163,163,0.8)";
+              if (relationship === "CONTRADICTS") return "rgba(245,158,11,0.8)";
+              return "rgba(148,163,184,0.35)";
             }}
           />
         )}
