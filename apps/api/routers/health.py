@@ -32,16 +32,14 @@ async def _check_searxng() -> ServiceStatus:
         return ServiceStatus(name=ServiceName.SEARXNG, ok=False, detail=str(exc))
 
 
-async def _check_neo4j(request: Request) -> ServiceStatus:
-    """
-    Prefer the lifespan driver when available.
-    Keep AsyncGraphDatabase imported at module scope so tests can monkeypatch it.
-    """
+async def _check_neo4j(request: Request | None = None) -> ServiceStatus:
+    """Prefer the lifespan driver when available; fall back to a fresh driver when request is None or no driver is set."""
     try:
-        driver = getattr(getattr(request.app, "state", None), "driver", None)
+        driver = None
+        if request is not None:
+            driver = getattr(getattr(request.app, "state", None), "driver", None)
 
         if driver is not None:
-            # Existing tests expect a lightweight session probe.
             async with driver.session() as session:
                 await session.run("RETURN 1")
             return ServiceStatus(name=ServiceName.NEO4J, ok=True)
