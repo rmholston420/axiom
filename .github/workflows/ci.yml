@@ -71,4 +71,4 @@ jobs:
       - name: Run unit tests (skip integration + e2e)
         env:
           PYTHONPATH: packages
-        run: pytest -m "not integration and not e2e" --tb=short
+        run: pytest -m "not integration and not e2e" --tb=short --cov=apps/api --cov=apps/axiomatizer --cov=packages/axiom_core --cov=packages/axiom_research --cov-branch --cov-report=term-missing:skip-covered --cov-fail-under=65
