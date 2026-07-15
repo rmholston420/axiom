@@ -5,10 +5,57 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from apps.api.dependencies import get_job_store, get_valkey, get_worker
+from apps.api.dependencies import get_driver, get_job_store, get_valkey, get_worker
 from apps.api.main import app
 from axiom_core.enums import JobStatus
 from axiom_research.queue_worker import JobStore, QueueWorker
+
+
+class DummyResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def __aiter__(self):
+        self._iter = iter(self._rows)
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._iter)
+        except StopIteration:
+            raise StopAsyncIteration
+
+
+class DummySession:
+    def __init__(self, rows):
+        self.rows = rows
+        self.run_calls = []
+
+    async def run(self, cypher):
+        self.run_calls.append(cypher)
+        return DummyResult(self.rows)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+class DummyDriver:
+    def __init__(self, node_rows=None, edge_rows=None):
+        self.node_rows = node_rows or []
+        self.edge_rows = edge_rows or []
+        self.calls = 0
+
+    def session(self):
+        self.calls += 1
+        if self.node_rows and self.calls == 1:
+            return DummySession(self.node_rows)
+        return DummySession(self.edge_rows)
+
+    async def close(self) -> None:
+        return
 
 
 class DummyValkeyClient:
@@ -100,6 +147,16 @@ def _make_app_with_overrides() -> TestClient:
     dummy_valkey = DummyValkey()
     store = JobStore(dummy_valkey)
     worker = DummyWorker(store, dummy_valkey)
+    driver = DummyDriver(
+        node_rows=[
+            {"id": "n1", "label": "Node 1", "type": "Query", "props": {"k": "v"}},
+            {"id": "n2", "label": "Node 2", "type": "Finding", "props": {}},
+        ],
+        edge_rows=[
+            {"source": "n1", "target": "n2", "type": "REL"},
+            {"source": "n1", "target": "n3", "type": "REL"},
+        ],
+    )
 
     async def override_get_valkey():
         return dummy_valkey
@@ -110,9 +167,13 @@ def _make_app_with_overrides() -> TestClient:
     async def override_get_worker():
         return worker
 
+    async def override_get_driver():
+        return driver
+
     app.dependency_overrides[get_valkey] = override_get_valkey
     app.dependency_overrides[get_job_store] = override_get_job_store
     app.dependency_overrides[get_worker] = override_get_worker
+    app.dependency_overrides[get_driver] = override_get_driver
 
     return TestClient(app)
 
@@ -167,3 +228,15 @@ def test_api_smoke_models_route() -> None:
     assert isinstance(data, dict)
     assert "models" in data
     assert isinstance(data["models"], list)
+
+
+
+def test_api_smoke_graph_route() -> None:
+    client = _make_app_with_overrides()
+
+    resp = client.get("/graph")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, dict)
+    assert [n["id"] for n in data["nodes"]] == ["n1", "n2"]
+    assert data["links"] == [{"source": "n1", "target": "n2", "type": "REL"}]
