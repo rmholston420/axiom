@@ -1,13 +1,10 @@
-"""Health check router — verifies connectivity to all pre-existing services.
-
-Neo4j check uses a lightweight query on the shared lifespan driver to avoid
-leaking a new driver connection per health-check request.
-"""
+"""Health check router — verifies connectivity to all pre-existing services."""
 
 import asyncio
 
 import httpx
 from fastapi import APIRouter, Request
+from neo4j import AsyncGraphDatabase
 from redis.asyncio import Redis
 
 from axiom_core.enums import ServiceName
@@ -36,36 +33,29 @@ async def _check_searxng() -> ServiceStatus:
 
 
 async def _check_neo4j(request: Request) -> ServiceStatus:
-    """Re-use the lifespan driver when available; keep module-level AsyncGraphDatabase for test monkeypatching."""
+    """
+    Prefer the lifespan driver when available.
+    Keep AsyncGraphDatabase imported at module scope so tests can monkeypatch it.
+    """
     try:
         driver = getattr(getattr(request.app, "state", None), "driver", None)
-        if driver is not None:
-            try:
-                async with driver.session() as session:
-                    result = await session.run("RETURN 1 AS ok")
-                    record = await result.single()
-                    if record is None:
-                        raise RuntimeError("neo4j ping returned no rows")
-            except Exception:
-                fresh = AsyncGraphDatabase.driver(
-                    settings.axiom_neo4j_uri,
-                    auth=(settings.axiom_neo4j_user, settings.axiom_neo4j_password),
-                )
-                try:
-                    await fresh.verify_connectivity()
-                finally:
-                    await fresh.close()
-        else:
-            fresh = AsyncGraphDatabase.driver(
-                settings.axiom_neo4j_uri,
-                auth=(settings.axiom_neo4j_user, settings.axiom_neo4j_password),
-            )
-            try:
-                await fresh.verify_connectivity()
-            finally:
-                await fresh.close()
 
-        return ServiceStatus(name=ServiceName.NEO4J, ok=True)
+        if driver is not None:
+            # Existing tests expect a lightweight session probe.
+            async with driver.session() as session:
+                await session.run("RETURN 1")
+            return ServiceStatus(name=ServiceName.NEO4J, ok=True)
+
+        fresh = AsyncGraphDatabase.driver(
+            settings.axiom_neo4j_uri,
+            auth=(settings.axiom_neo4j_user, settings.axiom_neo4j_password),
+        )
+        try:
+            await fresh.verify_connectivity()
+            return ServiceStatus(name=ServiceName.NEO4J, ok=True)
+        finally:
+            await fresh.close()
+
     except Exception as exc:
         return ServiceStatus(name=ServiceName.NEO4J, ok=False, detail=str(exc))
 
@@ -82,14 +72,7 @@ async def _check_valkey() -> ServiceStatus:
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check(request: Request):
-    """Check connectivity to Ollama, SearXNG, Neo4j, and Valkey (concurrently)."""
-    _name_map = {
-        "ollama": ServiceName.OLLAMA,
-        "searxng": ServiceName.SEARXNG,
-        "neo4j": ServiceName.NEO4J,
-        "valkey": ServiceName.VALKEY,
-    }
-
+    """Check connectivity to Ollama, SearXNG, Neo4j, and Valkey concurrently."""
     async def bounded_ollama(seconds: float = 3.0) -> ServiceStatus:
         try:
             return await asyncio.wait_for(_check_ollama(), timeout=seconds)
