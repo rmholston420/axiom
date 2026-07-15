@@ -93,7 +93,7 @@ export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [submitError, setSubmitError] = useState("");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>([]);
   const [streamReport, setStreamReport] = useState<string>("");
@@ -216,7 +216,7 @@ export default function DashboardPage() {
     if (!query.trim()) return;
 
     setSubmitting(true);
-    setError("");
+    setSubmitError("");
 
     try {
       const job = await createJob(query.trim());
