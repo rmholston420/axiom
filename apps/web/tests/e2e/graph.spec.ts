@@ -9,6 +9,25 @@ test.describe("Graph page", () => {
     await expect(page.getByRole("button", { name: /Refresh/ })).toBeVisible();
   });
 
+  test("shows 2D mode instructions by default", async ({ page }) => {
+    await page.goto("/graph");
+    await expect(page.getByText("Drag to pan, scroll to zoom, hover nodes to highlight connected links, click to pin details.")).toBeVisible();
+  });
+
+  test("can click the 3D mode control", async ({ page }) => {
+    await page.goto("/graph");
+    await page.getByRole("button", { name: /3D/ }).click();
+    await expect(page.getByRole("heading", { name: "Graph" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Refresh/ })).toBeVisible();
+  });
+
+  test("can switch back to 2D mode instructions", async ({ page }) => {
+    await page.goto("/graph");
+    await page.getByRole("button", { name: /3D/ }).click();
+    await page.getByRole("button", { name: /2D/ }).click();
+    await expect(page.getByText("Drag to pan, scroll to zoom, hover nodes to highlight connected links, click to pin details.")).toBeVisible();
+  });
+
   test("renders graph KPI labels", async ({ page }) => {
     await page.goto("/graph");
     await expect(page.getByText("Nodes", { exact: true })).toBeVisible();
