@@ -57,6 +57,30 @@ export interface AxiomRecord {
   persisted?: boolean;
 }
 
+export type CouncilMode = "sequential" | "parallel";
+
+export interface CouncilMemberOpinion {
+  member_id: number;
+  role: string;
+  opinion: string;
+}
+
+export interface CouncilRequest {
+  question: string;
+  context?: string;
+  council_size?: number;
+  mode?: CouncilMode;
+}
+
+export interface CouncilResponse {
+  question: string;
+  mode: CouncilMode;
+  members: CouncilMemberOpinion[];
+  consensus: string;
+  has_disagreement: boolean;
+  chairman_synthesis: string;
+}
+
 export interface SettingsData {
   axiom_model_planner: string;
   axiom_model_synthesizer: string;
@@ -150,4 +174,11 @@ export async function fetchModels(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+export async function runCouncil(body: CouncilRequest): Promise<CouncilResponse> {
+  return getJson<CouncilResponse>(`${API_BASE}/council`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  }, 1);
 }
