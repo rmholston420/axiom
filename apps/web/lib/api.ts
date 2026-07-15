@@ -68,6 +68,8 @@ export interface SettingsData {
   axiom_council_size: number;
   axiom_council_enabled: boolean;
   axiom_axiomatizer_enabled: boolean;
+  axiom_graph_node_limit: number;
+  axiom_graph_edge_limit: number;
 }
 
 async function sleep(ms: number) {

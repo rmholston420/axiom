@@ -18,6 +18,8 @@ const defaultSettings: SettingsData = {
   axiom_council_size: 3,
   axiom_council_enabled: true,
   axiom_axiomatizer_enabled: false,
+  axiom_graph_node_limit: 200,
+  axiom_graph_edge_limit: 400,
 };
 
 function fieldStyle(): React.CSSProperties {
