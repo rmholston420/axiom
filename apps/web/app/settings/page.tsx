@@ -245,6 +245,26 @@ export default function SettingsPage() {
                   />
                 </label>
 
+              <label style={{ display: "grid", gap: "0.45rem" }}>
+                <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Graph node limit</span>
+                <input
+                  type="number"
+                  value={settings.axiom_graph_node_limit}
+                  onChange={(e) => update("axiom_graph_node_limit", Number(e.target.value))}
+                  style={fieldStyle()}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: "0.45rem" }}>
+                <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Graph edge limit</span>
+                <input
+                  type="number"
+                  value={settings.axiom_graph_edge_limit}
+                  onChange={(e) => update("axiom_graph_edge_limit", Number(e.target.value))}
+                  style={fieldStyle()}
+                />
+              </label>
+
                 <label style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "1.8rem" }}>
                   <input
                     type="checkbox"
