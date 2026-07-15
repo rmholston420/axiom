@@ -36,20 +36,35 @@ async def _check_searxng() -> ServiceStatus:
 
 
 async def _check_neo4j(request: Request) -> ServiceStatus:
-    """Re-use the lifespan driver; fall back to a fresh driver if unavailable."""
+    """Re-use the lifespan driver when available; keep module-level AsyncGraphDatabase for test monkeypatching."""
     try:
         driver = getattr(getattr(request.app, "state", None), "driver", None)
-        if driver is None:
-            from neo4j import AsyncGraphDatabase
-            driver = AsyncGraphDatabase.driver(
+        if driver is not None:
+            try:
+                async with driver.session() as session:
+                    result = await session.run("RETURN 1 AS ok")
+                    record = await result.single()
+                    if record is None:
+                        raise RuntimeError("neo4j ping returned no rows")
+            except Exception:
+                fresh = AsyncGraphDatabase.driver(
+                    settings.axiom_neo4j_uri,
+                    auth=(settings.axiom_neo4j_user, settings.axiom_neo4j_password),
+                )
+                try:
+                    await fresh.verify_connectivity()
+                finally:
+                    await fresh.close()
+        else:
+            fresh = AsyncGraphDatabase.driver(
                 settings.axiom_neo4j_uri,
                 auth=(settings.axiom_neo4j_user, settings.axiom_neo4j_password),
             )
-            await driver.verify_connectivity()
-            await driver.close()
-        else:
-            async with driver.session() as session:
-                await session.run("RETURN 1")
+            try:
+                await fresh.verify_connectivity()
+            finally:
+                await fresh.close()
+
         return ServiceStatus(name=ServiceName.NEO4J, ok=True)
     except Exception as exc:
         return ServiceStatus(name=ServiceName.NEO4J, ok=False, detail=str(exc))
