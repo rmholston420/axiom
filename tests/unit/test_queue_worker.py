@@ -8,6 +8,23 @@ from axiom_core.enums import JobStatus
 from packages.axiom_research import queue_worker as qw
 
 
+class DummyListener:
+    def __init__(self, messages):
+        self._messages = iter(messages)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._messages)
+        except StopIteration:
+            raise StopAsyncIteration
+
+    async def aclose(self):
+        return None
+
+
 class DummyPubSub:
     def __init__(self, messages):
         self.messages = messages
@@ -24,9 +41,8 @@ class DummyPubSub:
     async def aclose(self):
         self.closed = True
 
-    async def listen(self):
-        for msg in self.messages:
-            yield msg
+    def listen(self):
+        return DummyListener(self.messages)
 
 
 class DummyClient:
@@ -278,7 +294,7 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_run_forever_processes_job_then_stops(monkeypatch):
+async def test_run_forever_processes_job_then_stops():
     client = DummyClient()
     client.blpop_items = [("axiom:queue", "job-3")]
     worker = qw.QueueWorker(driver=object(), valkey=DummyValkey(client))
@@ -299,7 +315,7 @@ async def test_run_forever_processes_job_then_stops(monkeypatch):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_run_forever_ignores_none_then_stops(monkeypatch):
+async def test_run_forever_ignores_none_then_stops():
     client = DummyClient()
     worker = qw.QueueWorker(driver=object(), valkey=DummyValkey(client))
 
