@@ -1,5 +1,3 @@
-"""Research-specific Pydantic models."""
-
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -12,6 +10,7 @@ class SubQuery(BaseModel):
 
 class RawFinding(BaseModel):
     sub_query: str
+    results: list[object] = Field(default_factory=list)
     summary: str
     source_urls: list[str] = Field(default_factory=list)
 
