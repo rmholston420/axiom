@@ -6,7 +6,6 @@ import Shell from "@/components/Shell";
 import { fetchAxioms, fetchGraph, type AxiomRecord, type GraphData } from "@/lib/api";
 import { RefreshCw, Loader2, Box, Orbit } from "lucide-react";
 import type { ForceGraphMethods } from "react-force-graph-2d";
-import type { ForceGraphInstance } from "react-force-graph-3d";
 
 const ForceGraph2D = dynamic(
   () => import("react-force-graph-2d").then((mod) => mod.default),
@@ -85,7 +84,7 @@ export default function GraphClient({
   const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const fg2dRef = useRef<ForceGraphMethods<GraphNodeDatum, GraphLinkDatum> | undefined>(undefined);
-  const fg3dRef = useRef<ForceGraphInstance | undefined>(undefined);
+  const fg3dRef = useRef<any>(undefined);
 
   const load = async () => {
     setLoading(true);
