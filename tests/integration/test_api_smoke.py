@@ -164,5 +164,7 @@ def test_api_smoke_models_route() -> None:
     resp = client.get("/models")
     assert resp.status_code == 200
     data = resp.json()
-    assert isinstance(data, list)
+    assert isinstance(data, dict)
+    assert "models" in data
+    assert isinstance(data["models"], list)
 
