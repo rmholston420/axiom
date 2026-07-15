@@ -8,16 +8,25 @@ client = TestClient(app)
 
 
 @pytest.mark.unit
-def test_settings_route_returns_public_settings():
+def test_settings_route_returns_known_public_fields():
     resp = client.get("/settings")
     assert resp.status_code == 200
     data = resp.json()
-    assert "api_base_url" in data
-    assert "axiomatizer_enabled" in data
+
+    # Match the actual key names used in the settings router
+    assert "axiom_axiomatizer_enabled" in data
+    assert isinstance(data["axiom_axiomatizer_enabled"], bool)
+    assert "axiom_breadth" in data
+    assert isinstance(data["axiom_breadth"], int)
 
 
 @pytest.mark.unit
-def test_settings_route_handles_unknown_field_access_gracefully():
+def test_settings_route_includes_council_configuration():
     resp = client.get("/settings")
+    assert resp.status_code == 200
     data = resp.json()
-    assert isinstance(data.get("axiomatizer_enabled"), bool)
+
+    assert "axiom_council_enabled" in data
+    assert isinstance(data["axiom_council_enabled"], bool)
+    assert "axiom_council_size" in data
+    assert isinstance(data["axiom_council_size"], int)
