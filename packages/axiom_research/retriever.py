@@ -1,4 +1,5 @@
 """Retriever — fetches and extracts web evidence for a sub-query."""
+
 from __future__ import annotations
 
 from axiom_providers.searxng import SearchResult, SearxngProvider

@@ -1,4 +1,5 @@
 """Neo4j schema bootstrap — constraints and indexes."""
+
 from __future__ import annotations
 
 from neo4j import AsyncDriver

@@ -1,4 +1,5 @@
 """Axiom Axiomatizer — FastAPI service that proposes, evaluates, and stores axioms."""
+
 import logging
 import os
 import sys

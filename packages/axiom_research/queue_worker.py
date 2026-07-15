@@ -1,16 +1,18 @@
 """Queue worker — pulls jobs from Valkey, runs ResearchLoop, emits SSE events."""
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from redis.exceptions import ConnectionError as RedisConnectionError
-from redis.exceptions import TimeoutError as RedisTimeoutError
 import uuid
-from datetime import datetime, timezone
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
+from typing import Any
 
 from neo4j import AsyncDriver
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from axiom_core.enums import JobStatus
 from axiom_core.settings import settings
@@ -29,7 +31,7 @@ def _channel(job_id: str) -> str:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class JobStore:

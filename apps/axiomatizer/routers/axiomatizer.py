@@ -1,11 +1,12 @@
 """Axiomatizer endpoint — propose, evaluate, and persist an Axiom node in Neo4j."""
+
 from __future__ import annotations
 
 import json
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Request
 from neo4j import AsyncDriver, AsyncGraphDatabase
@@ -52,9 +53,9 @@ _SYSTEM_EVALUATE = (
 def _extract_json_object(raw: str) -> dict:
     text = raw.strip()
     if text.startswith("```json"):
-        text = text[len("```json"):].strip()
+        text = text[len("```json") :].strip()
     elif text.startswith("```"):
-        text = text[len("```"):].strip()
+        text = text[len("```") :].strip()
     if text.endswith("```"):
         text = text[:-3].strip()
 
@@ -90,11 +91,7 @@ async def _propose_axiom(ollama: OllamaProvider, source_text: str, context: str)
 
 async def _evaluate_axiom(ollama: OllamaProvider, statement: str, justification: str) -> dict:
     prompt = (
-        "Axiom statement:\n"
-        f"{statement}\n\n"
-        "Justification:\n"
-        f"{justification}\n\n"
-        "Return JSON only."
+        f"Axiom statement:\n{statement}\n\nJustification:\n{justification}\n\nReturn JSON only."
     )
     raw = await ollama.generate(
         model=settings.axiom_model_critic,
@@ -133,7 +130,7 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
         )
 
     ollama = OllamaProvider()
-    created_at = datetime.now(timezone.utc).isoformat()
+    created_at = datetime.now(UTC).isoformat()
     axiom_id = str(uuid.uuid4())
 
     proposal = await _propose_axiom(ollama, body.source_text, body.context)

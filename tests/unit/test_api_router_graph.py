@@ -148,9 +148,7 @@ def test_get_nodes_returns_node_payload():
 
     assert response.status_code == 200
     assert response.json() == {
-        "nodes": [
-            {"id": "n1", "label": "Node 1", "type": "Source", "properties": {"url": "x"}}
-        ]
+        "nodes": [{"id": "n1", "label": "Node 1", "type": "Source", "properties": {"url": "x"}}]
     }
 
 
@@ -170,8 +168,4 @@ def test_get_edges_returns_filtered_edge_payload():
     response = client.get("/graph/edges")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "edges": [
-            {"source": "n1", "target": "n2", "type": "SUPPORTS"}
-        ]
-    }
+    assert response.json() == {"edges": [{"source": "n1", "target": "n2", "type": "SUPPORTS"}]}

@@ -1,4 +1,5 @@
 """Extractor — summarises raw search results for a sub-query via Ollama."""
+
 from __future__ import annotations
 
 from axiom_core.settings import settings
@@ -21,13 +22,9 @@ class Extractor:
         if not results:
             return "No search results found for this sub-query."
 
-        snippets = "\n".join(
-            f"[{i + 1}] {r.title}\n{r.snippet}" for i, r in enumerate(results)
-        )
+        snippets = "\n".join(f"[{i + 1}] {r.title}\n{r.snippet}" for i, r in enumerate(results))
         prompt = (
-            f"Sub-query: {sub_query}\n\n"
-            f"Search results:\n{snippets}\n\n"
-            "Write a concise summary."
+            f"Sub-query: {sub_query}\n\nSearch results:\n{snippets}\n\nWrite a concise summary."
         )
         return await self._ollama.generate(
             model=settings.axiom_model_synthesizer,

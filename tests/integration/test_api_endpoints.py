@@ -1,4 +1,5 @@
 """Integration tests for Axiom API REST endpoints."""
+
 from __future__ import annotations
 
 import os

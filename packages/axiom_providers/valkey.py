@@ -1,7 +1,9 @@
 """Valkey/Redis adapter — async thin wrapper."""
+
 from __future__ import annotations
 
 import redis.asyncio as aioredis
+
 from axiom_core.settings import settings
 
 

@@ -1,5 +1,3 @@
-import types
-
 import pytest
 
 from axiom_providers.searxng import SearchResult

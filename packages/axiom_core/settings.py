@@ -1,4 +1,5 @@
 """Centralised settings loaded from environment / .env file."""
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

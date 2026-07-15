@@ -1,7 +1,7 @@
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-import httpx
 
 from apps.api.routers import models as models_router
 from apps.api.routers.models import router
@@ -47,12 +47,14 @@ def make_app():
 
 @pytest.mark.unit
 def test_list_models_returns_shaped_models(monkeypatch):
-    response = DummyResponse({
-        "models": [
-            {"name": "llama3", "size": 123, "modified_at": "2026-07-15T12:00:00Z"},
-            {"name": "mistral", "size": 456, "modified_at": "2026-07-14T12:00:00Z"},
-        ]
-    })
+    response = DummyResponse(
+        {
+            "models": [
+                {"name": "llama3", "size": 123, "modified_at": "2026-07-15T12:00:00Z"},
+                {"name": "mistral", "size": 456, "modified_at": "2026-07-14T12:00:00Z"},
+            ]
+        }
+    )
 
     monkeypatch.setattr(
         models_router.httpx,
@@ -74,11 +76,13 @@ def test_list_models_returns_shaped_models(monkeypatch):
 
 @pytest.mark.unit
 def test_list_models_handles_missing_optional_fields(monkeypatch):
-    response = DummyResponse({
-        "models": [
-            {"name": "llama3"},
-        ]
-    })
+    response = DummyResponse(
+        {
+            "models": [
+                {"name": "llama3"},
+            ]
+        }
+    )
 
     monkeypatch.setattr(
         models_router.httpx,

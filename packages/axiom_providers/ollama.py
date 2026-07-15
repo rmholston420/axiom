@@ -1,7 +1,9 @@
 """Ollama provider — thin async wrapper around the Ollama HTTP API."""
+
 from __future__ import annotations
 
 import httpx
+
 from axiom_core.settings import settings
 
 

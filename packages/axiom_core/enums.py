@@ -1,4 +1,5 @@
 """Shared enumerations for Axiom."""
+
 from enum import Enum
 
 

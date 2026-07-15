@@ -1,10 +1,12 @@
 """SearXNG provider — async search adapter with JSON-first and HTML fallback."""
+
 from __future__ import annotations
 
 from html.parser import HTMLParser
 from urllib.parse import urljoin
 
 import httpx
+
 from axiom_core.settings import settings
 
 
@@ -52,7 +54,9 @@ class _SearxHTMLParser(HTMLParser):
                 self._href = urljoin(self.base_url, href)
 
         if tag in {"p", "div"} and (
-            "content" in class_attr or "result-content" in class_attr or "result__content" in class_attr
+            "content" in class_attr
+            or "result-content" in class_attr
+            or "result__content" in class_attr
         ):
             self._in_content = True
 
@@ -93,7 +97,9 @@ class SearxngProvider:
         """Run a web search and return up to *num_results* results."""
         limit = num_results or settings.axiom_max_results_per_query
 
-        async with httpx.AsyncClient(timeout=30.0, headers=self._headers, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=30.0, headers=self._headers, follow_redirects=True
+        ) as client:
             json_params = {
                 "q": query,
                 "format": "json",

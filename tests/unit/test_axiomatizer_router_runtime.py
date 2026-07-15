@@ -3,7 +3,6 @@ import types
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from starlette.requests import Request
 
 from apps.axiomatizer.routers import axiomatizer as ax_router
 from apps.axiomatizer.routers.axiomatizer import router
@@ -72,9 +71,9 @@ def make_app(with_driver=None):
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_propose_axiom_success():
-    ollama = DummyOllama([
-        '{"statement":"A implies B","justification":"because","confidence":0.75}'
-    ])
+    ollama = DummyOllama(
+        ['{"statement":"A implies B","justification":"because","confidence":0.75}']
+    )
 
     result = await ax_router._propose_axiom(ollama, "source text", "ctx")
 
@@ -100,9 +99,7 @@ async def test_propose_axiom_parse_failure_raises_http_502():
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_evaluate_axiom_success():
-    ollama = DummyOllama([
-        '{"approved": false, "reason": "too vague"}'
-    ])
+    ollama = DummyOllama(['{"approved": false, "reason": "too vague"}'])
 
     result = await ax_router._evaluate_axiom(ollama, "stmt", "justification")
 
@@ -124,7 +121,9 @@ async def test_evaluate_axiom_parse_failure_defaults_to_approved():
 @pytest.mark.asyncio
 async def test_get_driver_uses_app_state_driver():
     driver = DummyDriver()
-    request = types.SimpleNamespace(app=types.SimpleNamespace(state=types.SimpleNamespace(driver=driver)))
+    request = types.SimpleNamespace(
+        app=types.SimpleNamespace(state=types.SimpleNamespace(driver=driver))
+    )
 
     got_driver, should_close = await ax_router._get_driver(request)
 
@@ -150,11 +149,14 @@ def test_run_axiomatizer_disabled(monkeypatch):
     monkeypatch.setattr(ax_router.settings, "axiom_axiomatizer_enabled", False)
     client = TestClient(make_app())
 
-    response = client.post("/axiomatizer", json={
-        "source_text": "This is long enough text.",
-        "context": "",
-        "label": "",
-    })
+    response = client.post(
+        "/axiomatizer",
+        json={
+            "source_text": "This is long enough text.",
+            "context": "",
+            "label": "",
+        },
+    )
 
     assert response.status_code == 503
     assert "Axiomatizer is disabled" in response.json()["detail"]
@@ -171,11 +173,14 @@ def test_run_axiomatizer_empty_statement_returns_502(monkeypatch):
 
     client = TestClient(make_app())
 
-    response = client.post("/axiomatizer", json={
-        "source_text": "This is long enough text.",
-        "context": "",
-        "label": "",
-    })
+    response = client.post(
+        "/axiomatizer",
+        json={
+            "source_text": "This is long enough text.",
+            "context": "",
+            "label": "",
+        },
+    )
 
     assert response.status_code == 502
     assert "empty statement" in response.json()["detail"]
@@ -188,7 +193,9 @@ def test_run_axiomatizer_success_with_shared_driver(monkeypatch):
     monkeypatch.setattr(
         ax_router,
         "_propose_axiom",
-        lambda *a, **k: _awaitable({"statement": "axiom statement", "justification": "because", "confidence": 0.9}),
+        lambda *a, **k: _awaitable(
+            {"statement": "axiom statement", "justification": "because", "confidence": 0.9}
+        ),
     )
     monkeypatch.setattr(
         ax_router,
@@ -199,11 +206,14 @@ def test_run_axiomatizer_success_with_shared_driver(monkeypatch):
     driver = DummyDriver()
     client = TestClient(make_app(with_driver=driver))
 
-    response = client.post("/axiomatizer", json={
-        "source_text": "This is long enough text.",
-        "context": "ctx",
-        "label": "",
-    })
+    response = client.post(
+        "/axiomatizer",
+        json={
+            "source_text": "This is long enough text.",
+            "context": "ctx",
+            "label": "",
+        },
+    )
 
     assert response.status_code == 200
     payload = response.json()
@@ -221,7 +231,9 @@ def test_run_axiomatizer_success_with_standalone_driver(monkeypatch):
     monkeypatch.setattr(
         ax_router,
         "_propose_axiom",
-        lambda *a, **k: _awaitable({"statement": "standalone axiom", "justification": "because", "confidence": 0.7}),
+        lambda *a, **k: _awaitable(
+            {"statement": "standalone axiom", "justification": "because", "confidence": 0.7}
+        ),
     )
     monkeypatch.setattr(
         ax_router,
@@ -234,11 +246,14 @@ def test_run_axiomatizer_success_with_standalone_driver(monkeypatch):
 
     client = TestClient(make_app())
 
-    response = client.post("/axiomatizer", json={
-        "source_text": "This is long enough text.",
-        "context": "",
-        "label": "custom label",
-    })
+    response = client.post(
+        "/axiomatizer",
+        json={
+            "source_text": "This is long enough text.",
+            "context": "",
+            "label": "custom label",
+        },
+    )
 
     assert response.status_code == 200
     payload = response.json()
@@ -284,4 +299,5 @@ def test_list_axioms_returns_rows_and_closes_standalone_driver(monkeypatch):
 def _awaitable(value):
     async def _coro():
         return value
+
     return _coro()

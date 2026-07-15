@@ -1,12 +1,14 @@
 """Health check router — verifies connectivity to all pre-existing services."""
+
 import asyncio
-from fastapi import APIRouter
+
 import httpx
+from fastapi import APIRouter
 from neo4j import AsyncGraphDatabase
 from redis.asyncio import Redis
 
-from axiom_core.models import HealthResponse, ServiceStatus
 from axiom_core.enums import ServiceName
+from axiom_core.models import HealthResponse, ServiceStatus
 from axiom_core.settings import settings
 
 router = APIRouter(tags=["health"])
@@ -66,7 +68,7 @@ async def health_check():
     async def bounded(checker, seconds: float = 3.0) -> ServiceStatus:
         try:
             return await asyncio.wait_for(checker(), timeout=seconds)
-        except (asyncio.TimeoutError, TimeoutError):
+        except TimeoutError:
             return ServiceStatus(name=_name_map[checker], ok=False, detail="timeout")
         except Exception as exc:
             return ServiceStatus(name=_name_map[checker], ok=False, detail=str(exc))

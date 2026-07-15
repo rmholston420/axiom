@@ -1,4 +1,5 @@
 """Job queue endpoints: create, list, get."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException

@@ -1,4 +1,5 @@
 import json
+
 import pytest
 
 from apps.axiomatizer.routers.axiomatizer import _extract_json_object

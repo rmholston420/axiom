@@ -49,6 +49,7 @@ class DummyTask:
         async def _inner():
             self.awaited = True
             return await self._task
+
         return _inner().__await__()
 
 

@@ -1,4 +1,5 @@
 """Synthesizer — combines all findings into a final report via Ollama."""
+
 from __future__ import annotations
 
 from axiom_core.settings import settings

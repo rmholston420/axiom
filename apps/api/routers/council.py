@@ -3,14 +3,15 @@
 Forwards POST /council requests to apps/council over HTTP so service
 boundaries are preserved (no direct import of council code).
 """
+
 from __future__ import annotations
 
 import logging
+from typing import Literal
 
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Literal
 
 from axiom_core.settings import settings
 

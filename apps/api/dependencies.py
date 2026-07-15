@@ -1,10 +1,10 @@
 """FastAPI dependency injection: Neo4j driver, Valkey client, JobStore, QueueWorker."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, Request
 from neo4j import AsyncGraphDatabase

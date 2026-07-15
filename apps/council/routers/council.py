@@ -1,4 +1,5 @@
 """Council endpoint — fan-out to N members then synthesize to consensus/disagreement."""
+
 from __future__ import annotations
 
 import asyncio
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/council", tags=["council"])
 # ---------------------------------------------------------------------------
 # Request / Response models
 # ---------------------------------------------------------------------------
+
 
 class CouncilRequest(BaseModel):
     question: str
@@ -74,17 +76,90 @@ _ROLES = [
     "Visionary",
 ]
 
+
 def _tokenize_opinion(text: str) -> set[str]:
     """Normalize an opinion into a lightweight keyword set."""
     stop = {
-        "the", "a", "an", "and", "or", "but", "if", "then", "that", "this", "these", "those",
-        "is", "are", "was", "were", "be", "been", "being", "it", "its", "as", "of", "to", "for",
-        "in", "on", "at", "by", "with", "from", "into", "about", "than", "so", "such", "while",
-        "i", "we", "you", "they", "he", "she", "them", "our", "their", "my", "your",
-        "would", "could", "should", "may", "might", "can", "cannot", "will",
-        "some", "many", "more", "most", "much", "very", "also", "still", "remain", "remains",
-        "believe", "think", "argue", "like", "offer", "perspective", "based", "current", "important",
-        "problem", "problems", "open", "computing", "quantum"
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "but",
+        "if",
+        "then",
+        "that",
+        "this",
+        "these",
+        "those",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "it",
+        "its",
+        "as",
+        "of",
+        "to",
+        "for",
+        "in",
+        "on",
+        "at",
+        "by",
+        "with",
+        "from",
+        "into",
+        "about",
+        "than",
+        "so",
+        "such",
+        "while",
+        "i",
+        "we",
+        "you",
+        "they",
+        "he",
+        "she",
+        "them",
+        "our",
+        "their",
+        "my",
+        "your",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "can",
+        "cannot",
+        "will",
+        "some",
+        "many",
+        "more",
+        "most",
+        "much",
+        "very",
+        "also",
+        "still",
+        "remain",
+        "remains",
+        "believe",
+        "think",
+        "argue",
+        "like",
+        "offer",
+        "perspective",
+        "based",
+        "current",
+        "important",
+        "problem",
+        "problems",
+        "open",
+        "computing",
+        "quantum",
     }
     words = re.findall(r"[a-z0-9]+", text.lower())
     return {w for w in words if len(w) >= 4 and w not in stop}
@@ -121,6 +196,7 @@ def _contains_explicit_contradiction(text: str) -> bool:
 # ---------------------------------------------------------------------------
 # Core logic
 # ---------------------------------------------------------------------------
+
 
 async def _get_member_opinion(
     ollama: OllamaProvider,
@@ -202,9 +278,11 @@ def _detect_disagreement(opinions: list[MemberOpinion]) -> bool:
     # Middle band: only treat as disagreement if at least one opinion is explicitly contrastive.
     return any(_contains_explicit_contradiction(o.opinion) for o in opinions) and avg_overlap < 0.22
 
+
 # ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
+
 
 @router.post("", response_model=CouncilResponse)
 async def run_council(body: CouncilRequest) -> CouncilResponse:

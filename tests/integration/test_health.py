@@ -4,6 +4,7 @@ These tests run against a live stack (docker compose up -d or local dev).
 Set AXIOM_API_URL, AXIOM_COUNCIL_URL, AXIOM_AXIOMATIZER_URL env vars to
 override the defaults.
 """
+
 from __future__ import annotations
 
 import os

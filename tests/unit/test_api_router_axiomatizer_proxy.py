@@ -1,5 +1,5 @@
-import pytest
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.main import app
@@ -31,11 +31,14 @@ def test_axiomatizer_proxy_success(monkeypatch):
     monkeypatch.setattr(axiomatizer_router.settings, "axiom_axiomatizer_enabled", True)
 
     client = TestClient(app)
-    response = client.post("/axiomatizer", json={
-        "source_text": "This is long enough text.",
-        "context": "ctx",
-        "label": "lbl",
-    })
+    response = client.post(
+        "/axiomatizer",
+        json={
+            "source_text": "This is long enough text.",
+            "context": "ctx",
+            "label": "lbl",
+        },
+    )
 
     assert response.status_code == 200
     assert response.json()["axiom_id"] == "123"
@@ -46,11 +49,14 @@ def test_axiomatizer_proxy_disabled(monkeypatch):
     monkeypatch.setattr(axiomatizer_router.settings, "axiom_axiomatizer_enabled", False)
 
     client = TestClient(app)
-    response = client.post("/axiomatizer", json={
-        "source_text": "This is long enough text.",
-        "context": "",
-        "label": "",
-    })
+    response = client.post(
+        "/axiomatizer",
+        json={
+            "source_text": "This is long enough text.",
+            "context": "",
+            "label": "",
+        },
+    )
 
     assert response.status_code == 503
     assert "Axiomatizer is disabled" in response.json()["detail"]
@@ -66,11 +72,14 @@ def test_axiomatizer_proxy_connect_error(monkeypatch):
     monkeypatch.setattr(axiomatizer_router.settings, "axiom_axiomatizer_enabled", True)
 
     client = TestClient(app)
-    response = client.post("/axiomatizer", json={
-        "source_text": "This is long enough text.",
-        "context": "",
-        "label": "",
-    })
+    response = client.post(
+        "/axiomatizer",
+        json={
+            "source_text": "This is long enough text.",
+            "context": "",
+            "label": "",
+        },
+    )
 
     assert response.status_code == 503
     assert "not reachable" in response.json()["detail"]
@@ -85,11 +94,14 @@ def test_axiomatizer_proxy_http_error(monkeypatch):
     monkeypatch.setattr(axiomatizer_router.settings, "axiom_axiomatizer_enabled", True)
 
     client = TestClient(app)
-    response = client.post("/axiomatizer", json={
-        "source_text": "This is long enough text.",
-        "context": "",
-        "label": "",
-    })
+    response = client.post(
+        "/axiomatizer",
+        json={
+            "source_text": "This is long enough text.",
+            "context": "",
+            "label": "",
+        },
+    )
 
     assert response.status_code == 500
     assert response.json()["detail"] == "axiomatizer failed"

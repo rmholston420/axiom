@@ -1,4 +1,5 @@
 """Planner — breaks a top-level question into sub-queries via Ollama."""
+
 from __future__ import annotations
 
 import json

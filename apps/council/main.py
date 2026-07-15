@@ -1,4 +1,5 @@
 """Axiom Council — FastAPI service that runs sequential or parallel model fan-out."""
+
 import logging
 import os
 import sys

@@ -1,15 +1,16 @@
 """Neo4j repository — CRUD for Query, Finding, Source, and Axiom nodes."""
+
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from neo4j import AsyncDriver
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class GraphRepository:
@@ -41,7 +42,9 @@ class GraphRepository:
             await session.run(cypher, url=url, title=title, created_at=_now())
         return url
 
-    async def create_finding(self, query_id: str, sub_query: str, summary: str, source_urls: list[str]) -> str:
+    async def create_finding(
+        self, query_id: str, sub_query: str, summary: str, source_urls: list[str]
+    ) -> str:
         fid = str(uuid.uuid4())
         create_finding = """
         MATCH (q:Query {id: $query_id})

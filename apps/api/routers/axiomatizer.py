@@ -1,4 +1,5 @@
 """Axiom API — Axiomatizer proxy router."""
+
 from __future__ import annotations
 
 import logging
@@ -28,7 +29,10 @@ class AxiomProxyRequest(BaseModel):
 @router.post("")
 async def proxy_axiomatizer(body: AxiomProxyRequest):
     if not settings.axiom_axiomatizer_enabled:
-        raise HTTPException(status_code=503, detail="Axiomatizer is disabled. Set AXIOM_AXIOMATIZER_ENABLED=true to enable.")
+        raise HTTPException(
+            status_code=503,
+            detail="Axiomatizer is disabled. Set AXIOM_AXIOMATIZER_ENABLED=true to enable.",
+        )
     try:
         async with httpx.AsyncClient(timeout=300.0) as client:
             resp = await client.post(f"{_AXIOMATIZER_BASE}/axiomatizer", json=body.model_dump())
@@ -36,7 +40,10 @@ async def proxy_axiomatizer(body: AxiomProxyRequest):
         return resp.json()
     except httpx.ConnectError:
         log.error("Axiomatizer service unreachable at %s", _AXIOMATIZER_BASE)
-        raise HTTPException(status_code=503, detail=f"Axiom Axiomatizer service is not reachable at {_AXIOMATIZER_BASE}. Start it with: make axiomatizer")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Axiom Axiomatizer service is not reachable at {_AXIOMATIZER_BASE}. Start it with: make axiomatizer",
+        )
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
 
@@ -47,10 +54,15 @@ async def proxy_list_axioms(limit: int = Query(default=50, ge=1, le=500)):
         raise HTTPException(status_code=503, detail="Axiomatizer is disabled.")
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(f"{_AXIOMATIZER_BASE}/axiomatizer/axioms", params={"limit": limit})
+            resp = await client.get(
+                f"{_AXIOMATIZER_BASE}/axiomatizer/axioms", params={"limit": limit}
+            )
         resp.raise_for_status()
         return resp.json()
     except httpx.ConnectError:
-        raise HTTPException(status_code=503, detail=f"Axiom Axiomatizer service is not reachable at {_AXIOMATIZER_BASE}.")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Axiom Axiomatizer service is not reachable at {_AXIOMATIZER_BASE}.",
+        )
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)

@@ -3,6 +3,7 @@
 This test is slow (depends on Ollama inference time) and is marked `e2e`.
 Run with: pytest -m e2e
 """
+
 from __future__ import annotations
 
 import asyncio

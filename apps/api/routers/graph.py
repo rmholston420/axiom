@@ -1,4 +1,5 @@
 """Graph data endpoints — nodes and edges for the UI graph view."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
@@ -83,7 +84,9 @@ async def _load_nodes(driver: AsyncDriver) -> list[GraphNode]:
     return nodes
 
 
-async def _load_edges(driver: AsyncDriver, allowed_node_ids: set[str] | None = None) -> list[GraphEdge]:
+async def _load_edges(
+    driver: AsyncDriver, allowed_node_ids: set[str] | None = None
+) -> list[GraphEdge]:
     edges: list[GraphEdge] = []
     async with driver.session() as session:
         result = await session.run(EDGES_CYPHER)
@@ -94,7 +97,9 @@ async def _load_edges(driver: AsyncDriver, allowed_node_ids: set[str] | None = N
                 continue
             source = str(source)
             target = str(target)
-            if allowed_node_ids is not None and (source not in allowed_node_ids or target not in allowed_node_ids):
+            if allowed_node_ids is not None and (
+                source not in allowed_node_ids or target not in allowed_node_ids
+            ):
                 continue
             edges.append(
                 GraphEdge(

@@ -151,7 +151,12 @@ async def test_run_executes_full_pipeline(monkeypatch):
         ("https://c.test", "C"),
     ]
     assert repo.create_finding_calls == [
-        ("query-123", "subquery one", "summary for subquery one", ["https://a.test", "https://b.test"]),
+        (
+            "query-123",
+            "subquery one",
+            "summary for subquery one",
+            ["https://a.test", "https://b.test"],
+        ),
         ("query-123", "subquery two", "summary for subquery two", ["https://c.test"]),
     ]
     assert result.query == "What is Axiom?"

@@ -7,7 +7,10 @@ from apps.axiomatizer.main import app
 @pytest.mark.unit
 def test_app_metadata_is_set():
     assert app.title == "Axiom Axiomatizer"
-    assert app.description == "Axiom — Local Research Workbench axiom proposal, evaluation, and storage service"
+    assert (
+        app.description
+        == "Axiom — Local Research Workbench axiom proposal, evaluation, and storage service"
+    )
     assert app.version == "0.6.0"
 
 

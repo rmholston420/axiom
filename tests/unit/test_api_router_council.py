@@ -1,5 +1,5 @@
-import pytest
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.main import app
@@ -30,12 +30,15 @@ def test_council_proxy_success(monkeypatch):
     monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
 
     client = TestClient(app)
-    response = client.post("/council", json={
-        "question": "What is the plan?",
-        "context": "ctx",
-        "council_size": 3,
-        "mode": "parallel",
-    })
+    response = client.post(
+        "/council",
+        json={
+            "question": "What is the plan?",
+            "context": "ctx",
+            "council_size": 3,
+            "mode": "parallel",
+        },
+    )
 
     assert response.status_code == 200
     assert response.json() == {"answer": "ok", "mode": "parallel"}
@@ -46,12 +49,15 @@ def test_council_proxy_disabled(monkeypatch):
     monkeypatch.setattr(council_router.settings, "axiom_council_enabled", False)
 
     client = TestClient(app)
-    response = client.post("/council", json={
-        "question": "What is the plan?",
-        "context": "",
-        "council_size": 1,
-        "mode": "sequential",
-    })
+    response = client.post(
+        "/council",
+        json={
+            "question": "What is the plan?",
+            "context": "",
+            "council_size": 1,
+            "mode": "sequential",
+        },
+    )
 
     assert response.status_code == 503
     assert "Council is disabled" in response.json()["detail"]
@@ -67,12 +73,15 @@ def test_council_proxy_connect_error(monkeypatch):
     monkeypatch.setattr(council_router.settings, "axiom_council_enabled", True)
 
     client = TestClient(app)
-    response = client.post("/council", json={
-        "question": "What is the plan?",
-        "context": "",
-        "council_size": 1,
-        "mode": "sequential",
-    })
+    response = client.post(
+        "/council",
+        json={
+            "question": "What is the plan?",
+            "context": "",
+            "council_size": 1,
+            "mode": "sequential",
+        },
+    )
 
     assert response.status_code == 503
     assert "not reachable" in response.json()["detail"]
@@ -87,12 +96,15 @@ def test_council_proxy_http_error(monkeypatch):
     monkeypatch.setattr(council_router.settings, "axiom_council_enabled", True)
 
     client = TestClient(app)
-    response = client.post("/council", json={
-        "question": "What is the plan?",
-        "context": "",
-        "council_size": 1,
-        "mode": "sequential",
-    })
+    response = client.post(
+        "/council",
+        json={
+            "question": "What is the plan?",
+            "context": "",
+            "council_size": 1,
+            "mode": "sequential",
+        },
+    )
 
     assert response.status_code == 502
     assert response.json()["detail"] == "bad upstream"

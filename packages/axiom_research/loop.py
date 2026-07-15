@@ -1,4 +1,5 @@
 """ResearchLoop — orchestrates planner → retriever → extractor → graph → synthesizer."""
+
 from __future__ import annotations
 
 from neo4j import AsyncDriver

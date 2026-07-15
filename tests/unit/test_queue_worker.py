@@ -250,9 +250,21 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
 
     assert events[0] == ("job-1", "status", {"status": "running"})
     assert events[1] == ("job-1", "progress", {"msg": "Planning sub-queries"})
-    assert events[2] == ("job-1", "finding", {"index": 1, "sub_query": "sub-1", "summary": "summary 1"})
-    assert events[3] == ("job-1", "finding", {"index": 2, "sub_query": "sub-2", "summary": "summary 2"})
-    assert events[-1] == ("job-1", "done", {"status": "done", "report": "report for What is Axiom?"})
+    assert events[2] == (
+        "job-1",
+        "finding",
+        {"index": 1, "sub_query": "sub-1", "summary": "summary 1"},
+    )
+    assert events[3] == (
+        "job-1",
+        "finding",
+        {"index": 2, "sub_query": "sub-2", "summary": "summary 2"},
+    )
+    assert events[-1] == (
+        "job-1",
+        "done",
+        {"status": "done", "report": "report for What is Axiom?"},
+    )
 
 
 @pytest.mark.unit
@@ -429,9 +441,11 @@ async def test_sse_stream_yields_existing_done_status_and_exits():
     async for chunk in qw.sse_stream(DummyValkey(client), job_id):
         chunks.append(chunk)
 
-    assert len(chunks) == 1
+    assert len(chunks) == 2
     assert '"event": "status"' in chunks[0]
     assert '"status": "done"' in chunks[0]
+    assert '"event": "done"' in chunks[1]
+    assert '"status": "done"' in chunks[1]
     assert client.pubsub_instance.subscribed == ["axiom:stream:job-7"]
     assert client.pubsub_instance.unsubscribed == ["axiom:stream:job-7"]
     assert client.pubsub_instance.closed is True

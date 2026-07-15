@@ -1,4 +1,5 @@
 """SSE streaming endpoint for a single job."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException

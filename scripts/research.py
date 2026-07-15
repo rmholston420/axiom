@@ -7,6 +7,7 @@ Usage:
 Requires: Ollama, SearXNG, and Neo4j running locally.
 Environment variables are read from .env at the repo root.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,13 +24,14 @@ from dotenv import load_dotenv
 
 load_dotenv(repo_root / ".env")
 
+from neo4j import AsyncGraphDatabase  # noqa: E402
+
 from axiom_core.settings import settings  # noqa: E402
 from axiom_research.loop import ResearchLoop  # noqa: E402
-from neo4j import AsyncGraphDatabase  # noqa: E402
 
 
 async def main(question: str) -> None:
-    print(f"\n🔬 Axiom — Local Research Workbench")
+    print("\n🔬 Axiom — Local Research Workbench")
     print(f"   Question : {question}")
     print(f"   Neo4j    : {settings.axiom_neo4j_uri}")
     print(f"   Ollama   : {settings.axiom_ollama_base_url}")
@@ -60,6 +62,6 @@ async def main(question: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python scripts/research.py \"Your question here\"")
+        print('Usage: python scripts/research.py "Your question here"')
         sys.exit(1)
     asyncio.run(main(" ".join(sys.argv[1:])))
