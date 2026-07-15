@@ -47,6 +47,14 @@ type GraphLinkDatum = {
   type?: string;
 };
 
+
+type ForceLinkObject = {
+  source?: string | number | GraphNodeDatum;
+  target?: string | number | GraphNodeDatum;
+  relationship?: string;
+  weight?: number;
+};
+
 type ForceGraphInstance = {
   d3Force: (name: string) => {
     distance?: (fn: (link: GraphLinkDatum) => number) => void;
