@@ -157,3 +157,12 @@ def test_api_smoke_jobs_and_health() -> None:
     with client.stream("GET", f"/jobs/{job_id}/stream") as stream_resp:
         assert stream_resp.status_code == 200
         assert stream_resp.headers["content-type"].startswith("text/event-stream")
+
+def test_api_smoke_models_route() -> None:
+    client = _make_app_with_overrides()
+
+    resp = client.get("/models")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert isinstance(data, list)
+
