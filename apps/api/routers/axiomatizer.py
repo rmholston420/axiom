@@ -42,7 +42,10 @@ async def proxy_axiomatizer(body: AxiomProxyRequest):
         log.error("Axiomatizer service unreachable at %s", _AXIOMATIZER_BASE)
         raise HTTPException(
             status_code=503,
-            detail=f"Axiom Axiomatizer service is not reachable at {_AXIOMATIZER_BASE}. Start it with: make axiomatizer",
+            detail=(
+                "Axiom Axiomatizer service is not reachable at "
+                f"{_AXIOMATIZER_BASE}. Start it with: make axiomatizer"
+            ),
         )
     except httpx.HTTPStatusError as exc:
         raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)

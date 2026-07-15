@@ -160,10 +160,18 @@ async def sse_stream(valkey: ValkeyProvider, job_id: str) -> AsyncIterator[str]:
             status = job["status"]
             yield f"data: {json.dumps({'event': 'status', 'data': {'status': status}})}\n\n"
             if status == JobStatus.DONE.value:
-                yield f"data: {json.dumps({'event': 'done', 'data': {'status': 'done', 'report': job.get('report', '')}})}\n\n"
+                payload = {
+                    "event": "done",
+                    "data": {"status": "done", "report": job.get("report", "")},
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
                 return
             if status == JobStatus.FAILED.value:
-                yield f"data: {json.dumps({'event': 'error', 'data': {'error': job.get('error', 'unknown error')}})}\n\n"
+                payload = {
+                    "event": "error",
+                    "data": {"error": job.get("error", "unknown error")},
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
                 return
         async for message in pubsub.listen():
             if message["type"] != "message":

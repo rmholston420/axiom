@@ -1,16 +1,16 @@
 """Shared enumerations for Axiom."""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     QUEUED = "queued"
     RUNNING = "running"
     DONE = "done"
     FAILED = "failed"
 
 
-class ServiceName(str, Enum):
+class ServiceName(StrEnum):
     OLLAMA = "ollama"
     SEARXNG = "searxng"
     NEO4J = "neo4j"
