@@ -5,9 +5,9 @@ import httpx
 from neo4j import AsyncGraphDatabase
 from redis.asyncio import Redis
 
-from packages.axiom_core.models import HealthResponse, ServiceStatus
-from packages.axiom_core.enums import ServiceName
-from packages.axiom_core.settings import settings
+from axiom_core.models import HealthResponse, ServiceStatus
+from axiom_core.enums import ServiceName
+from axiom_core.settings import settings
 
 router = APIRouter(tags=["health"])
 
@@ -56,6 +56,7 @@ async def _check_valkey() -> ServiceStatus:
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Check connectivity to Ollama, SearXNG, Neo4j, and Valkey."""
+
     async def bounded(checker, seconds: float = 1.5) -> ServiceStatus:
         try:
             return await asyncio.wait_for(checker(), timeout=seconds)
