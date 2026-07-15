@@ -61,9 +61,9 @@ curl http://localhost:7200/health  # smoke test
 ## Slice status
 
 - [x] Slice 1 — Scaffold and connectivity
-- [ ] Slice 2 — Research loop core
-- [ ] Slice 3 — API, queue, and stream
-- [ ] Slice 4 — Web UI
-- [ ] Slice 5 — Council
-- [ ] Slice 6 — Axiomatizer
-- [ ] Slice 7 — Hardening
+- [x] Slice 2 — Research loop core
+- [x] Slice 3 — API, queue, and stream
+- [x] Slice 4 — Web UI
+- [x] Slice 5 — Council
+- [x] Slice 6 — Axiomatizer
+- [x] Slice 7 — Hardening
