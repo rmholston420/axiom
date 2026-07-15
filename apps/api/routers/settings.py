@@ -19,6 +19,8 @@ class SettingsResponse(BaseModel):
     axiom_council_size: int
     axiom_council_enabled: bool
     axiom_axiomatizer_enabled: bool
+    axiom_graph_node_limit: int
+    axiom_graph_edge_limit: int
     axiom_model_planner: str
     axiom_model_synthesizer: str
     axiom_model_code: str
@@ -34,6 +36,8 @@ class SettingsPatch(BaseModel):
     axiom_council_size: int | None = None
     axiom_council_enabled: bool | None = None
     axiom_axiomatizer_enabled: bool | None = None
+    axiom_graph_node_limit: int | None = None
+    axiom_graph_edge_limit: int | None = None
     axiom_model_planner: str | None = None
     axiom_model_synthesizer: str | None = None
     axiom_model_code: str | None = None
@@ -52,6 +56,8 @@ async def get_settings():
         axiom_council_size=settings.axiom_council_size,
         axiom_council_enabled=settings.axiom_council_enabled,
         axiom_axiomatizer_enabled=settings.axiom_axiomatizer_enabled,
+        axiom_graph_node_limit=settings.axiom_graph_node_limit,
+        axiom_graph_edge_limit=settings.axiom_graph_edge_limit,
         axiom_model_planner=settings.axiom_model_planner,
         axiom_model_synthesizer=settings.axiom_model_synthesizer,
         axiom_model_code=settings.axiom_model_code,

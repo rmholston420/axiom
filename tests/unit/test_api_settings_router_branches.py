@@ -17,6 +17,10 @@ def test_settings_route_returns_known_public_fields():
     assert isinstance(data["axiom_axiomatizer_enabled"], bool)
     assert "axiom_breadth" in data
     assert isinstance(data["axiom_breadth"], int)
+    assert "axiom_graph_node_limit" in data
+    assert isinstance(data["axiom_graph_node_limit"], int)
+    assert "axiom_graph_edge_limit" in data
+    assert isinstance(data["axiom_graph_edge_limit"], int)
 
 
 @pytest.mark.unit
