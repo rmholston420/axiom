@@ -110,17 +110,11 @@ class Planner:
             system=_PLAN_SYSTEM,
         )
         model_queries = _parse_json_list(raw)
-        merged: list[str] = []
-        seen: set[str] = set()
+        if model_queries:
+            return [SubQuery(text=sq, depth=0) for sq in model_queries[:n]]
 
-        for item in _heuristic_queries(question, n) + model_queries:
-            text = str(item).strip()
-            key = _normalize_question(text)
-            if text and key not in seen:
-                seen.add(key)
-                merged.append(text)
-
-        return [SubQuery(text=sq, depth=0) for sq in merged[:n]]
+        fallback_queries = _heuristic_queries(question, n)
+        return [SubQuery(text=sq, depth=0) for sq in fallback_queries[:n]]
 
 
 def _parse_json_list(text: str) -> list[str]:
