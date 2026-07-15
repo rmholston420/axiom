@@ -7,8 +7,9 @@ import logging
 import re
 import uuid
 from datetime import UTC, datetime
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from pydantic import BaseModel, Field
 
@@ -53,9 +54,9 @@ _SYSTEM_EVALUATE = (
 def _extract_json_object(raw: str) -> dict:
     text = raw.strip()
     if text.startswith("```json"):
-        text = text[len("```json") :].strip()
+        text = text[len("```json"):].strip()
     elif text.startswith("```"):
-        text = text[len("```") :].strip()
+        text = text[len("```"):].strip()
     if text.endswith("```"):
         text = text[:-3].strip()
 
@@ -109,11 +110,13 @@ async def _evaluate_axiom(ollama: OllamaProvider, statement: str, justification:
         return {"approved": True, "reason": "evaluation parse failed — defaulting to approved"}
 
 
-async def _get_driver(request: Request) -> tuple[AsyncDriver, bool]:
-    state = getattr(request.app, "state", None)
-    driver = getattr(state, "driver", None) if state else None
-    if driver is not None:
-        return driver, False
+async def _get_driver(request: Optional[Request]) -> tuple[AsyncDriver, bool]:
+    """Return (driver, should_close). Re-uses the lifespan driver when available."""
+    if request is not None:
+        state = getattr(request.app, "state", None)
+        driver = getattr(state, "driver", None) if state else None
+        if driver is not None:
+            return driver, False
     driver = AsyncGraphDatabase.driver(
         settings.axiom_neo4j_uri,
         auth=(settings.axiom_neo4j_user, settings.axiom_neo4j_password),
@@ -195,7 +198,11 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
 
 
 @router.get("/axioms")
-async def list_axioms(limit: int = 50, request: Request = None):  # noqa: B008
+async def list_axioms(
+    limit: int = Query(default=50, ge=1, le=500),
+    request: Optional[Request] = None,
+) -> list[dict]:
+    """List axioms stored in Neo4j, newest first."""
     if not settings.axiom_axiomatizer_enabled:
         raise HTTPException(status_code=503, detail="Axiomatizer is disabled.")
 

@@ -97,7 +97,6 @@ class QueueWorker:
         await self._publish(job_id, "status", {"status": "running"})
         try:
             loop = ResearchLoop(self._driver)
-            # Monkey-patch each stage to emit progress events
             original_run = loop.run
 
             async def instrumented_run(question: str, **kwargs: Any):
@@ -150,7 +149,12 @@ class QueueWorker:
 
 
 async def sse_stream(valkey: ValkeyProvider, job_id: str) -> AsyncIterator[str]:
-    """Yield Server-Sent Events for a specific job."""
+    """Yield Server-Sent Events for a specific job.
+
+    This is an async generator.  The StreamingResponse in `stream.py` wraps it
+    with `_sse_generator` so that FastAPI receives a plain async iterator — the
+    generator is consumed correctly regardless of starlette version.
+    """
     pubsub = valkey.client.pubsub()
     await pubsub.subscribe(_channel(job_id))
     try:

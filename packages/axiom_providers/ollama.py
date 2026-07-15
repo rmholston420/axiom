@@ -13,8 +13,11 @@ class OllamaProvider:
     def __init__(self) -> None:
         self._base = settings.axiom_ollama_base_url.rstrip("/")
 
-    async def generate(self, model: str, prompt: str, system: str = "") -> str:
-        """Call Ollama native chat endpoint and return assistant text."""
+    async def generate(self, *, model: str, prompt: str, system: str = "") -> str:
+        """Call Ollama native chat endpoint and return assistant text.
+
+        All parameters are keyword-only so call sites and test mocks align.
+        """
         messages = []
         if system:
             messages.append({"role": "system", "content": system})

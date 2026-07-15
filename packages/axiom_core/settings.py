@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     axiom_neo4j_uri: str = "bolt://localhost:7687"
     axiom_neo4j_user: str = "neo4j"
     axiom_neo4j_password: str = "collosus"
-    axiom_redis_url: str = "redis://localhost:7379"
+    # Default matches docker-compose `axiom-redis:6379`; local dev override: redis://localhost:6379
+    axiom_redis_url: str = "redis://localhost:6379"
 
     # Service ports
     axiom_api_port: int = 7200

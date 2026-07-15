@@ -48,154 +48,32 @@ class CouncilResponse(BaseModel):
 # Prompts
 # ---------------------------------------------------------------------------
 
+_MEMBER_ROLES = [
+    "critical analyst",
+    "domain expert",
+    "devil's advocate",
+    "synthesizer",
+    "ethicist",
+    "pragmatist",
+    "historian",
+    "futurist",
+    "skeptic",
+    "optimist",
+]
+
 _MEMBER_SYSTEM = (
-    "You are council member {role}. You are a careful, critical thinker. "
-    "Given a research question and supporting context, give your honest, "
-    "concise opinion in 2-4 sentences. If you disagree with a common view, say so."
+    "You are a {role} on a research council. "
+    "Given a question and optional context, provide a concise, well-reasoned opinion "
+    "(2-4 paragraphs). Be specific and avoid generic platitudes."
 )
 
 _CHAIRMAN_SYSTEM = (
-    "You are the Chairman of the Axiom Council. "
-    "You have received independent opinions from {n} council members on a research question. "
-    "Synthesize their views into a final council response. "
-    "If members agree, state the consensus clearly. "
-    "If members disagree on key points, highlight the disagreement and note both perspectives. "
-    "Be precise and concise. Output in Markdown."
+    "You are the Chairman of a research council. "
+    "Given a question and opinions from multiple council members, "
+    "synthesize the key points of agreement and disagreement into a coherent summary. "
+    "Identify the strongest arguments, note areas of contention, and provide a "
+    "balanced conclusion. Be concise and precise."
 )
-
-_ROLES = [
-    "Analyst",
-    "Critic",
-    "Synthesizer",
-    "Devil's Advocate",
-    "Domain Expert",
-    "Skeptic",
-    "Integrator",
-    "Ethicist",
-    "Strategist",
-    "Visionary",
-]
-
-
-def _tokenize_opinion(text: str) -> set[str]:
-    """Normalize an opinion into a lightweight keyword set."""
-    stop = {
-        "the",
-        "a",
-        "an",
-        "and",
-        "or",
-        "but",
-        "if",
-        "then",
-        "that",
-        "this",
-        "these",
-        "those",
-        "is",
-        "are",
-        "was",
-        "were",
-        "be",
-        "been",
-        "being",
-        "it",
-        "its",
-        "as",
-        "of",
-        "to",
-        "for",
-        "in",
-        "on",
-        "at",
-        "by",
-        "with",
-        "from",
-        "into",
-        "about",
-        "than",
-        "so",
-        "such",
-        "while",
-        "i",
-        "we",
-        "you",
-        "they",
-        "he",
-        "she",
-        "them",
-        "our",
-        "their",
-        "my",
-        "your",
-        "would",
-        "could",
-        "should",
-        "may",
-        "might",
-        "can",
-        "cannot",
-        "will",
-        "some",
-        "many",
-        "more",
-        "most",
-        "much",
-        "very",
-        "also",
-        "still",
-        "remain",
-        "remains",
-        "believe",
-        "think",
-        "argue",
-        "like",
-        "offer",
-        "perspective",
-        "based",
-        "current",
-        "important",
-        "problem",
-        "problems",
-        "open",
-        "computing",
-        "quantum",
-    }
-    words = re.findall(r"[a-z0-9]+", text.lower())
-    return {w for w in words if len(w) >= 4 and w not in stop}
-
-
-def _jaccard(a: set[str], b: set[str]) -> float:
-    if not a or not b:
-        return 0.0
-    union = a | b
-    if not union:
-        return 0.0
-    return len(a & b) / len(union)
-
-
-def _contains_explicit_contradiction(text: str) -> bool:
-    markers = [
-        "disagree with member",
-        "i disagree",
-        "however",
-        "in contrast",
-        "on the other hand",
-        "contrary to",
-        "rather than",
-        "instead",
-        "not the primary",
-        "not the main",
-        "overly optimistic",
-        "skeptical about",
-    ]
-    lower = text.lower()
-    return any(m in lower for m in markers)
-
-
-# ---------------------------------------------------------------------------
-# Core logic
-# ---------------------------------------------------------------------------
 
 
 async def _get_member_opinion(
@@ -204,129 +82,94 @@ async def _get_member_opinion(
     role: str,
     question: str,
     context: str,
+    model: str,
 ) -> MemberOpinion:
-    """Ask one council member for their opinion."""
-    prompt = f"Research question: {question}"
+    system = _MEMBER_SYSTEM.format(role=role)
+    prompt = f"Question: {question}"
     if context:
         prompt += f"\n\nContext:\n{context}"
-
-    system = _MEMBER_SYSTEM.format(role=role)
-    opinion = await ollama.generate(
-        model=settings.axiom_model_critic,
-        prompt=prompt,
-        system=system,
-    )
-    return MemberOpinion(member_id=member_id, role=role, opinion=opinion.strip())
+    opinion = await ollama.generate(model=model, prompt=prompt, system=system)
+    return MemberOpinion(member_id=member_id, role=role, opinion=opinion)
 
 
-async def _chairman_synthesize(
+async def _get_chairman_synthesis(
     ollama: OllamaProvider,
     question: str,
     opinions: list[MemberOpinion],
+    model: str,
 ) -> str:
-    """Chairman reads all opinions and returns a synthesis."""
     opinions_text = "\n\n".join(
-        f"**Member {o.member_id} ({o.role}):**\n{o.opinion}" for o in opinions
+        f"[Member {o.member_id} — {o.role}]:\n{o.opinion}" for o in opinions
     )
-    prompt = (
-        f"Research question: {question}\n\n"
-        f"Council opinions:\n\n{opinions_text}\n\n"
-        "Provide your synthesis."
-    )
-    system = _CHAIRMAN_SYSTEM.format(n=len(opinions))
-    return await ollama.generate(
-        model=settings.axiom_model_chairman,
-        prompt=prompt,
-        system=system,
-    )
+    prompt = f"Question: {question}\n\nCouncil Opinions:\n{opinions_text}"
+    return await ollama.generate(model=model, prompt=prompt, system=_CHAIRMAN_SYSTEM)
 
 
 def _detect_disagreement(opinions: list[MemberOpinion]) -> bool:
-    """Infer disagreement from pairwise topic overlap plus contradiction cues.
-
-    This avoids false positives from generic skeptical phrasing inside one
-    opinion when members are still broadly aligned on the same themes.
-    """
-    if len(opinions) < 2:
-        return False
-
-    token_sets = [_tokenize_opinion(o.opinion) for o in opinions]
-    overlaps: list[float] = []
-
-    for i in range(len(opinions)):
-        for j in range(i + 1, len(opinions)):
-            overlap = _jaccard(token_sets[i], token_sets[j])
-            overlaps.append(overlap)
-
-            a_contra = _contains_explicit_contradiction(opinions[i].opinion)
-            b_contra = _contains_explicit_contradiction(opinions[j].opinion)
-
-            # Strong topical divergence + contradiction language => disagreement.
-            if overlap < 0.18 and (a_contra or b_contra):
-                return True
-
-    avg_overlap = sum(overlaps) / len(overlaps) if overlaps else 0.0
-
-    # Broad shared-topic overlap means practical agreement.
-    if avg_overlap >= 0.26:
-        return False
-
-    # Low overlap across the board suggests substantially different priorities.
-    if avg_overlap < 0.12:
-        return True
-
-    # Middle band: only treat as disagreement if at least one opinion is explicitly contrastive.
-    return any(_contains_explicit_contradiction(o.opinion) for o in opinions) and avg_overlap < 0.22
-
-
-# ---------------------------------------------------------------------------
-# Endpoint
-# ---------------------------------------------------------------------------
+    """Heuristic: flag disagreement when opposing-sentiment markers appear."""
+    disagree_markers = re.compile(
+        r"\b(however|disagree|contrary|on the other hand|in contrast|"
+        r"alternatively|but|yet|nevertheless|despite|challenge|refute)"
+        r"\b",
+        re.IGNORECASE,
+    )
+    combined = " ".join(o.opinion for o in opinions)
+    matches = disagree_markers.findall(combined)
+    return len(matches) >= 2
 
 
 @router.post("", response_model=CouncilResponse)
 async def run_council(body: CouncilRequest) -> CouncilResponse:
-    """Fan-out to N council members then synthesize.
-
-    Mode ``sequential`` (default, VRAM-safe): members queried one at a time so
-    only one model call is in-flight at once — safe on 16 GB VRAM.
-    Mode ``parallel``: all members queried concurrently; faster but heavier.
-    """
+    """Run a council fan-out for the given question."""
     if not settings.axiom_council_enabled:
-        raise HTTPException(status_code=503, detail="Council is disabled via AXIOM_COUNCIL_ENABLED")
+        raise HTTPException(
+            status_code=503,
+            detail="Council is disabled via AXIOM_COUNCIL_ENABLED",
+        )
 
     size = body.council_size if body.council_size > 0 else settings.axiom_council_size
-    size = min(size, len(_ROLES))
-    roles = _ROLES[:size]
+    size = max(1, min(size, len(_MEMBER_ROLES)))
+    roles = _MEMBER_ROLES[:size]
 
     ollama = OllamaProvider()
+    chairman_model = settings.axiom_model_chairman
 
-    # --- Member fan-out ---
     if body.mode == "parallel":
         opinions: list[MemberOpinion] = await asyncio.gather(
             *[
-                _get_member_opinion(ollama, i + 1, role, body.question, body.context)
+                _get_member_opinion(
+                    ollama=ollama,
+                    member_id=i + 1,
+                    role=role,
+                    question=body.question,
+                    context=body.context,
+                    model=chairman_model,
+                )
                 for i, role in enumerate(roles)
             ]
         )
-    else:  # sequential — VRAM-safe default
+    else:
         opinions = []
         for i, role in enumerate(roles):
-            op = await _get_member_opinion(ollama, i + 1, role, body.question, body.context)
+            op = await _get_member_opinion(
+                ollama=ollama,
+                member_id=i + 1,
+                role=role,
+                question=body.question,
+                context=body.context,
+                model=chairman_model,
+            )
             opinions.append(op)
-            log.info("Council member %d/%d (%s) complete", i + 1, size, role)
 
     has_disagreement = _detect_disagreement(opinions)
-
-    # Build simple consensus string (first-pass agreement summary)
-    consensus = (
-        "Members reached broad consensus."
-        if not has_disagreement
-        else "Members showed notable disagreement on one or more points."
+    chairman_synthesis = await _get_chairman_synthesis(
+        ollama=ollama,
+        question=body.question,
+        opinions=opinions,
+        model=chairman_model,
     )
 
-    # --- Chairman synthesis ---
-    chairman_synthesis = await _chairman_synthesize(ollama, body.question, opinions)
+    consensus = "Agreement" if not has_disagreement else "Disagreement detected"
 
     return CouncilResponse(
         question=body.question,
@@ -334,5 +177,5 @@ async def run_council(body: CouncilRequest) -> CouncilResponse:
         members=opinions,
         consensus=consensus,
         has_disagreement=has_disagreement,
-        chairman_synthesis=chairman_synthesis.strip(),
+        chairman_synthesis=chairman_synthesis,
     )

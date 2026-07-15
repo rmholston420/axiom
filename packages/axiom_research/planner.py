@@ -38,9 +38,7 @@ class Planner:
 
 def _parse_json_list(text: str) -> list[str]:
     """Extract the first JSON array from *text*, tolerating markdown fences."""
-    # Strip markdown code fences if present
     cleaned = re.sub(r"```[\w]*", "", text).strip()
-    # Find the outermost [...]
     m = re.search(r"\[.*\]", cleaned, re.DOTALL)
     if m:
         try:
@@ -49,5 +47,4 @@ def _parse_json_list(text: str) -> list[str]:
                 return [str(item) for item in result]
         except json.JSONDecodeError:
             pass
-    # Fallback: return any non-empty lines as queries
     return [line.strip().strip('"').strip("'") for line in cleaned.splitlines() if line.strip()]
