@@ -99,6 +99,7 @@ export default function DashboardPage() {
   const [streamError, setStreamError] = useState<string>("");
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const eventsRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -117,12 +118,18 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    void loadJobs();
     const interval = window.setInterval(() => {
-      void loadJobs();
+      setRefreshTick((tick) => tick + 1);
     }, 5000);
     return () => window.clearInterval(interval);
-  }, [loadJobs]);
+  }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      void loadJobs();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [loadJobs, refreshTick]);
 
   useEffect(() => {
     if (!startedAt || !activeJobId) return;
@@ -230,12 +237,12 @@ export default function DashboardPage() {
   const report = activeJob?.report ?? streamReport;
   const error = activeJob?.error ?? streamError;
 
-  useEffect(() => {
-    if (!startedAt || !activeJob) return;
-    if (activeJob.status === "done" || activeJob.status === "error") {
-      setStartedAt(null);
-    }
-  }, [activeJob, startedAt]);
+
+  const isActiveJobRunning = Boolean(
+    startedAt &&
+    activeJob &&
+    (activeJob.status === "queued" || activeJob.status === "running"),
+  );
 
   const elapsedMs = startedAt ? Math.max(0, now - startedAt) : 0;
 

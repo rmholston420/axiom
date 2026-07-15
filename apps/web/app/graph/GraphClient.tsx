@@ -32,19 +32,41 @@ type GraphLink = {
 };
 
 
-type ForceGraphLinkDatum = {
-  source: string | GraphNode;
-  target: string | GraphNode;
+type GraphNodeDatum = {
+  id?: string | number;
+  label?: string;
+  type?: string;
+  x?: number;
+  y?: number;
+};
+
+type GraphLinkDatum = {
+  source: string | GraphNodeDatum;
+  target: string | GraphNodeDatum;
   type?: string;
 };
 
 type ForceGraphInstance = {
   d3Force: (name: string) => {
-    distance?: (fn: (link: ForceGraphLinkDatum) => number) => void;
+    distance?: (fn: (link: GraphLinkDatum) => number) => void;
   } | undefined;
   d3ReheatSimulation: () => void;
   zoomToFit: (durationMs?: number, paddingPx?: number) => void;
 };
+
+
+function getNodeId(node: string | GraphNodeDatum | null | undefined): string {
+  if (typeof node === "string") return node;
+  return String(node?.id ?? "");
+}
+
+function getNodeLabel(node: GraphNodeDatum | null | undefined): string {
+  return String(node?.label ?? node?.id ?? "node");
+}
+
+function getNodeType(node: GraphNodeDatum | null | undefined): string {
+  return String(node?.type ?? "Unknown");
+}
 
 export default function GraphClient({
   initialGraph,
@@ -60,8 +82,8 @@ export default function GraphClient({
   const [mode, setMode] = useState<GraphMode>("2d");
   const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const fg2dRef = useRef<ForceGraphInstance | null>(null);
-  const fg3dRef = useRef<ForceGraphInstance | null>(null);
+  const fg2dRef = useRef<ForceGraphInstance | undefined>(undefined);
+  const fg3dRef = useRef<ForceGraphInstance | undefined>(undefined);
 
   const load = async () => {
     setLoading(true);
@@ -150,7 +172,7 @@ export default function GraphClient({
     if (!graphData || !fg3dRef.current) return;
     const fg = fg3dRef.current;
     try {
-      fg.d3Force("link")?.distance?.((link: ForceGraphLinkDatum) => {
+      fg.d3Force("link")?.distance?.((link: GraphLinkDatum) => {
         const sourceId = typeof link.source === "string" ? link.source : link.source.id;
         const targetId = typeof link.target === "string" ? link.target : link.target.id;
         return sourceId === targetId ? 120 : 145;
@@ -247,14 +269,15 @@ export default function GraphClient({
           <ForceGraph2D
             ref={fg2dRef}
             graphData={graphData}
-            nodeLabel={(node: GraphNode) => `${node.label} (${node.type})`}
-            linkLabel={(link: GraphLink) => link.type}
+            nodeLabel={(node: GraphNodeDatum) => `${getNodeLabel(node)} (${getNodeType(node)})`}
+            linkLabel={(link: GraphLinkDatum) => String(link.type ?? "")}
             nodeRelSize={7}
-                        onNodeHover={(node: GraphNode) => setHoverNodeId(node?.id ?? null)}
-            onNodeClick={(node: GraphNode) => setSelectedNodeId(node?.id ?? null)}
-            nodeCanvasObject={(node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-              const isActive = neighborIds.size === 0 || neighborIds.has(node.id);
-              const color = nodeColorMap[node.type] ?? "#888";
+                        onNodeHover={(node: GraphNodeDatum | null) => setHoverNodeId(node?.id != null ? String(node.id) : null)}
+            onNodeClick={(node: GraphNodeDatum) => setSelectedNodeId(node?.id != null ? String(node.id) : null)}
+            nodeCanvasObject={(node: GraphNodeDatum, ctx: CanvasRenderingContext2D, globalScale: number) => {
+              const nodeId = String(node.id ?? "");
+              const isActive = neighborIds.size === 0 || neighborIds.has(nodeId);
+              const color = nodeColorMap[String(node.type ?? "")] ?? "#888";
               const fontSize = Math.max(10, 12 / globalScale);
               ctx.beginPath();
               ctx.arc(node.x, node.y, isActive ? 7 : 5.5, 0, 2 * Math.PI, false);
@@ -262,19 +285,19 @@ export default function GraphClient({
               ctx.fill();
               ctx.font = `${fontSize}px sans-serif`;
               ctx.fillStyle = isActive ? "#e5e7eb" : "rgba(148, 163, 184, 0.6)";
-              ctx.fillText(node.label, node.x + 10, node.y + 4);
+              ctx.fillText(String(node.label ?? node.id ?? "node"), (node.x ?? 0) + 10, (node.y ?? 0) + 4);
             }}
-            linkColor={(link: GraphLink) => {
-              const sourceId = typeof link.source === "string" ? link.source : link.source.id;
-              const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            linkColor={(link: GraphLinkDatum) => {
+              const sourceId = getNodeId(link.source);
+              const targetId = getNodeId(link.target);
               if (neighborIds.size === 0) return "rgba(148,163,184,0.35)";
               return neighborIds.has(sourceId) && neighborIds.has(targetId)
                 ? "rgba(79,152,163,0.8)"
                 : "rgba(148,163,184,0.14)";
             }}
-            linkWidth={(link: GraphLink) => {
-              const sourceId = typeof link.source === "string" ? link.source : link.source.id;
-              const targetId = typeof link.target === "string" ? link.target : link.target.id;
+            linkWidth={(link: GraphLinkDatum) => {
+              const sourceId = getNodeId(link.source);
+              const targetId = getNodeId(link.target);
               return neighborIds.has(sourceId) && neighborIds.has(targetId) ? 2.2 : 1;
             }}
           />
@@ -282,14 +305,14 @@ export default function GraphClient({
           <ForceGraph3D
             ref={fg3dRef}
             graphData={graphData}
-            nodeLabel={(node: GraphNode) => `${node.label} (${node.type})`}
-            linkLabel={(link: GraphLink) => link.type}
+            nodeLabel={(node: GraphNodeDatum) => `${getNodeLabel(node)} (${getNodeType(node)})`}
+            linkLabel={(link: GraphLinkDatum) => String(link.type ?? "")}
             nodeAutoColorBy="type"
-                        onNodeHover={(node: GraphNode) => setHoverNodeId(node?.id ?? null)}
-            onNodeClick={(node: GraphNode) => setSelectedNodeId(node?.id ?? null)}
-            linkColor={(link: GraphLink) => {
-              const sourceId = typeof link.source === "string" ? link.source : link.source.id;
-              const targetId = typeof link.target === "string" ? link.target : link.target.id;
+                        onNodeHover={(node: GraphNodeDatum | null) => setHoverNodeId(node?.id != null ? String(node.id) : null)}
+            onNodeClick={(node: GraphNodeDatum) => setSelectedNodeId(node?.id != null ? String(node.id) : null)}
+            linkColor={(link: GraphLinkDatum) => {
+              const sourceId = getNodeId(link.source);
+              const targetId = getNodeId(link.target);
               if (neighborIds.size === 0) return "rgba(148,163,184,0.35)";
               return neighborIds.has(sourceId) && neighborIds.has(targetId)
                 ? "rgba(79,152,163,0.85)"
