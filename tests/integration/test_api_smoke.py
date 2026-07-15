@@ -144,6 +144,12 @@ def test_api_smoke_jobs_and_health() -> None:
 
     job_id = job["id"]
 
+    list_resp = client.get("/jobs")
+    assert list_resp.status_code == 200
+    jobs = list_resp.json()
+    assert isinstance(jobs, list)
+    assert any(item["id"] == job_id for item in jobs)
+
     get_resp = client.get(f"/jobs/{job_id}")
     assert get_resp.status_code == 200
     assert get_resp.json()["id"] == job_id
