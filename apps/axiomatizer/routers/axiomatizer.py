@@ -7,7 +7,6 @@ import logging
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from neo4j import AsyncDriver, AsyncGraphDatabase
@@ -200,13 +199,12 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
 @router.get("/axioms")
 async def list_axioms(
     limit: int = Query(default=50, ge=1, le=500),
-    request: Optional[Request] = None,
 ) -> list[dict]:
     """List axioms stored in Neo4j, newest first."""
     if not settings.axiom_axiomatizer_enabled:
         raise HTTPException(status_code=503, detail="Axiomatizer is disabled.")
 
-    driver, should_close = await _get_driver(request)
+    driver, should_close = await _get_driver(None)
     cypher = """
     MATCH (a:Axiom)
     RETURN a
