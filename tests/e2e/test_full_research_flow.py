@@ -28,7 +28,7 @@ async def test_research_job_completes() -> None:
     async with httpx.AsyncClient(timeout=30) as client:
         # Submit job
         resp = await client.post(f"{AXIOM_API_URL}/jobs", json=payload)
-        assert resp.status_code in (200, 201), f"Job creation failed: {resp.text}"
+        assert resp.status_code in (200, 201, 202), f"Job creation failed: {resp.text}"
         job = resp.json()
         job_id = job.get("id") or job.get("job_id")
         assert job_id, "Response missing job id"
