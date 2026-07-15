@@ -21,6 +21,12 @@ type ReferenceItem = {
   snippet: string;
 };
 
+type LiveFinding = {
+  index: number;
+  subQuery: string;
+  summary: string;
+};
+
 const statusIcon: Record<string, React.ReactNode> = {
   queued: <Clock size={14} style={{ color: "var(--color-text-muted)" }} />,
   running: <Loader2 size={14} className="animate-spin" style={{ color: "var(--color-primary)" }} />,
@@ -89,6 +95,7 @@ export default function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>([]);
+  const [liveFindings, setLiveFindings] = useState<LiveFinding[]>([]);
   const [report, setReport] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -158,6 +165,8 @@ export default function DashboardPage() {
     const es = new EventSource(`/api/jobs/${jobId}/stream`);
     sseRef.current = es;
 
+    setLiveFindings([]);
+
     es.onmessage = (e) => {
       const data = e.data as string;
 
@@ -176,6 +185,23 @@ export default function DashboardPage() {
         if (parsed.type === "event") setEvents((prev) => [...prev, parsed.message]);
         if (parsed.type === "report") setReport(parsed.content);
         if (parsed.type === "error") setError(parsed.message);
+        if (parsed.type === "finding" && parsed.data) {
+          setLiveFindings((prev) => {
+            const next = [...prev];
+            const item: LiveFinding = {
+              index: Number(parsed.data.index ?? next.length + 1),
+              subQuery: String(parsed.data.sub_query ?? "").trim(),
+              summary: String(parsed.data.summary ?? "").trim(),
+            };
+            const existingIdx = next.findIndex((f) => f.index === item.index);
+            if (existingIdx >= 0) {
+              next[existingIdx] = item;
+            } else {
+              next.push(item);
+            }
+            return next;
+          });
+        }
       } catch {
         setEvents((prev) => [...prev, data]);
       }
