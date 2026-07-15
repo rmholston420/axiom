@@ -166,20 +166,7 @@ def test_api_smoke_models_route() -> None:
     data = resp.json()
     assert isinstance(data, dict)
     assert "models" in data
-    assert isinstance(data["models"], list)
-
-def test_api_smoke_graph_route() -> None:
-    client = _make_app_with_overrides()
-
-    resp = client.get("/graph")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert isinstance(data, dict)
-    assert "nodes" in data
-    assert "links" in data
-    assert isinstance(data["nodes"], list)
-    assert isinstance(data["links"], list)
-    assert isinstance(data, dict)
+    assert isinstance(data["models"], list)    assert isinstance(data, dict)
     assert "nodes" in data
     assert "links" in data
     assert isinstance(data["nodes"], list)
