@@ -1,10 +1,6 @@
 """Axiom API — FastAPI application entry point (Slice 6: axiomatizer proxy added)."""
 
 import logging
-import os
-import sys
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from fastapi import FastAPI
 
