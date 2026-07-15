@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 app = FastAPI(
     title="Axiom Council",
     description="Axiom — Local Research Workbench council fan-out and synthesis service",
-    version="0.5.0",
+    version="0.6.0",
 )
 
 app.include_router(council_router.router)
@@ -22,7 +22,7 @@ app.include_router(council_router.router)
 
 @app.get("/")
 async def root():
-    return {"service": "Axiom Council", "version": "0.5.0"}
+    return {"service": "Axiom Council", "version": "0.6.0"}
 
 
 @app.get("/health")

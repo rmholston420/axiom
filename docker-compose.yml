@@ -58,7 +58,7 @@ services:
             -d '{"model":"llama3.2:3b","stream":false}'
           curl -fsS http://axiom-ollama:11434/api/pull \
             -H 'Content-Type: application/json' \
-            -d '{"model":"qwen3-coder:latest","stream":false}'
+            -d '{"model":"qwen2.5-coder:14b","stream":false}'
 
   axiom-api:
     depends_on:

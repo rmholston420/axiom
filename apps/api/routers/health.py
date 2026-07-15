@@ -55,36 +55,30 @@ async def _check_valkey() -> ServiceStatus:
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Check connectivity to Ollama, SearXNG, Neo4j, and Valkey."""
+    """Check connectivity to Ollama, SearXNG, Neo4j, and Valkey (concurrently)."""
+    _name_map = {
+        _check_ollama: ServiceName.OLLAMA,
+        _check_searxng: ServiceName.SEARXNG,
+        _check_neo4j: ServiceName.NEO4J,
+        _check_valkey: ServiceName.VALKEY,
+    }
 
-    async def bounded(checker, seconds: float = 1.5) -> ServiceStatus:
+    async def bounded(checker, seconds: float = 3.0) -> ServiceStatus:
         try:
             return await asyncio.wait_for(checker(), timeout=seconds)
-        except TimeoutError:
-            name_map = {
-                _check_ollama: ServiceName.OLLAMA,
-                _check_searxng: ServiceName.SEARXNG,
-                _check_neo4j: ServiceName.NEO4J,
-                _check_valkey: ServiceName.VALKEY,
-            }
-            return ServiceStatus(name=name_map[checker], ok=False, detail="timeout")
+        except (asyncio.TimeoutError, TimeoutError):
+            return ServiceStatus(name=_name_map[checker], ok=False, detail="timeout")
         except Exception as exc:
-            name_map = {
-                _check_ollama: ServiceName.OLLAMA,
-                _check_searxng: ServiceName.SEARXNG,
-                _check_neo4j: ServiceName.NEO4J,
-                _check_valkey: ServiceName.VALKEY,
-            }
-            return ServiceStatus(name=name_map[checker], ok=False, detail=str(exc))
+            return ServiceStatus(name=_name_map[checker], ok=False, detail=str(exc))
 
-    results = [
-        await bounded(_check_ollama),
-        await bounded(_check_searxng),
-        await bounded(_check_neo4j),
-        await bounded(_check_valkey),
-    ]
+    results = await asyncio.gather(
+        bounded(_check_ollama),
+        bounded(_check_searxng),
+        bounded(_check_neo4j),
+        bounded(_check_valkey),
+    )
     all_ok = all(s.ok for s in results)
     return HealthResponse(
         status="healthy" if all_ok else "degraded",
-        services=results,
+        services=list(results),
     )

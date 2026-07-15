@@ -167,6 +167,7 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
         a.confidence = $confidence,
         a.approved = $approved,
         a.eval_reason = $eval_reason
+    RETURN a.id AS id
     """
     try:
         async with driver.session() as session:
@@ -197,7 +198,7 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
 
 
 @router.get("/axioms")
-async def list_axioms(limit: int = 50, request: Request = None):
+async def list_axioms(limit: int = 50, request: Request = None):  # noqa: B008
     if not settings.axiom_axiomatizer_enabled:
         raise HTTPException(status_code=503, detail="Axiomatizer is disabled.")
 

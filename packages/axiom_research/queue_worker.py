@@ -4,7 +4,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from redis.exceptions import ConnectionError, TimeoutError
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 import uuid
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator
@@ -135,7 +136,7 @@ class QueueWorker:
                 await self._process(job_id)
             except asyncio.CancelledError:
                 break
-            except (ConnectionError, TimeoutError):
+            except (RedisConnectionError, RedisTimeoutError):
                 await asyncio.sleep(2)
             except Exception:  # noqa: BLE001
                 log.exception("Unexpected error in worker loop")
@@ -154,8 +155,13 @@ async def sse_stream(valkey: ValkeyProvider, job_id: str) -> AsyncIterator[str]:
         # Yield any already-stored status first
         job = await JobStore(valkey).get(job_id)
         if job:
-            yield f"data: {json.dumps({'event': 'status', 'data': {'status': job['status']}})}\n\n"
-            if job["status"] in (JobStatus.DONE.value, JobStatus.FAILED.value):
+            status = job["status"]
+            yield f"data: {json.dumps({'event': 'status', 'data': {'status': status}})}\n\n"
+            if status == JobStatus.DONE.value:
+                yield f"data: {json.dumps({'event': 'done', 'data': {'status': 'done', 'report': job.get('report', '')}})}\n\n"
+                return
+            if status == JobStatus.FAILED.value:
+                yield f"data: {json.dumps({'event': 'error', 'data': {'error': job.get('error', 'unknown error')}})}\n\n"
                 return
         async for message in pubsub.listen():
             if message["type"] != "message":
