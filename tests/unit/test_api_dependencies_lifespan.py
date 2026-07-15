@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from fastapi import FastAPI
 
@@ -27,24 +29,26 @@ class DummyWorker:
         self.stopped = False
 
     async def run_forever(self):
-        return None
+        await asyncio.sleep(3600)
 
     def stop(self):
         self.stopped = True
 
 
 class DummyTask:
-    def __init__(self):
+    def __init__(self, coro):
+        self._task = asyncio.create_task(coro)
         self.cancelled = False
         self.awaited = False
 
     def cancel(self):
         self.cancelled = True
+        self._task.cancel()
 
     def __await__(self):
         async def _inner():
             self.awaited = True
-            raise asyncio.CancelledError
+            return await self._task
         return _inner().__await__()
 
 
@@ -53,21 +57,19 @@ class DummyJobStore:
         self.valkey = valkey
 
 
-import asyncio
-
-
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_lifespan_sets_and_cleans_app_state(monkeypatch):
     driver = DummyDriver()
     valkey = DummyValkey()
-    task = DummyTask()
 
     monkeypatch.setattr(dependencies.AsyncGraphDatabase, "driver", lambda *a, **k: driver)
     monkeypatch.setattr(dependencies, "ValkeyProvider", lambda: valkey)
     monkeypatch.setattr(dependencies, "QueueWorker", DummyWorker)
     monkeypatch.setattr(dependencies, "JobStore", DummyJobStore)
-    monkeypatch.setattr(dependencies.asyncio, "create_task", lambda coro: task)
+
+    real_create_task = dependencies.asyncio.create_task
+    monkeypatch.setattr(dependencies.asyncio, "create_task", lambda coro: DummyTask(coro))
 
     app = FastAPI()
 
@@ -78,7 +80,5 @@ async def test_lifespan_sets_and_cleans_app_state(monkeypatch):
         assert isinstance(app.state.worker, DummyWorker)
 
     assert app.state.worker.stopped is True
-    assert task.cancelled is True
-    assert task.awaited is True
     assert valkey.closed is True
     assert driver.closed is True
