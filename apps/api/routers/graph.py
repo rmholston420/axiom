@@ -7,6 +7,7 @@ from neo4j import AsyncDriver
 from pydantic import BaseModel
 
 from apps.api.dependencies import get_driver
+from axiom_core.settings import settings
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
@@ -72,7 +73,7 @@ RETURN
     labels(n)[0] AS type,
     props AS props
 ORDER BY coalesce(props["created_at"], "")
-LIMIT 2000
+LIMIT {settings.axiom_graph_node_limit}
 """
 
 EDGES_CYPHER = f"""
@@ -83,7 +84,7 @@ RETURN
     {EDGE_SOURCE_ID_EXPR} AS source,
     {EDGE_TARGET_ID_EXPR} AS target,
     type(r) AS type
-LIMIT 4000
+LIMIT {settings.axiom_graph_edge_limit}
 """
 
 

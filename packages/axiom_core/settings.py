@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     axiom_council_size: int = 3
     axiom_council_enabled: bool = True
     axiom_axiomatizer_enabled: bool = False
+    axiom_graph_node_limit: int = 2000
+    axiom_graph_edge_limit: int = 4000
 
 
 # Module-level singleton
