@@ -9,7 +9,6 @@ from apps.api.dependencies import get_job_store, get_valkey, get_worker
 from apps.api.main import app
 from axiom_core.enums import JobStatus
 from axiom_research.queue_worker import JobStore, QueueWorker
-from axiom_providers.valkey import ValkeyProvider
 
 
 class DummyValkeyClient:
@@ -67,11 +66,15 @@ class DummyPubSub:
             yield msg
 
 
-class DummyValkey(ValkeyProvider):
-    """ValkeyProvider with in-memory client for tests."""
+class DummyValkey:
+    """Minimal valkey-like object exposing the interface the app uses."""
 
     def __init__(self) -> None:
-        self.client = DummyValkeyClient()
+        self._client = DummyValkeyClient()
+
+    @property
+    def client(self) -> DummyValkeyClient:
+        return self._client
 
     async def aclose(self) -> None:
         return
