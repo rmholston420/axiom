@@ -49,7 +49,7 @@ class DummyDriver:
 
     def session(self):
         self.calls += 1
-        if self.calls == 1:
+        if self.node_rows and self.calls == 1:
             return DummySession(self.node_rows)
         return DummySession(self.edge_rows)
 
