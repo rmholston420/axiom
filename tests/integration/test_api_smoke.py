@@ -166,9 +166,4 @@ def test_api_smoke_models_route() -> None:
     data = resp.json()
     assert isinstance(data, dict)
     assert "models" in data
-    assert isinstance(data["models"], list)    assert isinstance(data, dict)
-    assert "nodes" in data
-    assert "links" in data
-    assert isinstance(data["nodes"], list)
-    assert isinstance(data["links"], list)
-
+    assert isinstance(data["models"], list)
