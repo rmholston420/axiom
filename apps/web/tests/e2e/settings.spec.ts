@@ -1,22 +1,30 @@
 import { test, expect } from "@playwright/test";
+import {
+  openSettings,
+  settingsHeading,
+  settingsLoadingText,
+  settingsModelsHeading,
+  settingsRuntimeHeading,
+  settingsSaveButton,
+} from "./helpers";
 
 test.describe("Settings page", () => {
   test("renders settings heading and description", async ({ page }) => {
-    await page.goto("/settings");
-    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    await openSettings(page);
+    await expect(settingsHeading(page)).toBeVisible();
     await expect(page.getByText("Runtime defaults and model selection.")).toBeVisible();
   });
 
   test("renders Save button", async ({ page }) => {
-    await page.goto("/settings");
-    await expect(page.getByRole("button", { name: /Save|Saving\.\.\.|Saved/ })).toBeVisible();
+    await openSettings(page);
+    await expect(settingsSaveButton(page)).toBeVisible();
   });
 
   test("shows loading state or loaded sections", async ({ page }) => {
-    await page.goto("/settings");
-    const loading = page.getByText("Loading settings...");
-    const modelsHeading = page.getByRole("heading", { name: "Models" });
-    const runtimeHeading = page.getByRole("heading", { name: "Runtime" });
+    await openSettings(page);
+    const loading = settingsLoadingText(page);
+    const modelsHeading = settingsModelsHeading(page);
+    const runtimeHeading = settingsRuntimeHeading(page);
 
     if (await loading.isVisible()) {
       await expect(loading).toBeVisible();
