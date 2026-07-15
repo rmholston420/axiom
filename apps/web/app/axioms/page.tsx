@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { BookMarked, CheckCircle2, XCircle, Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import Shell from "@/components/Shell";
 import { fetchAxioms, type AxiomRecord } from "@/lib/api";
@@ -77,7 +77,7 @@ export default function AxiomsPage() {
   const [error, setError] = useState("");
   const [limit, setLimit] = useState(25);
 
-  const load = useCallback(async (n: number) => {
+  async function load(n: number) {
     setLoading(true);
     setError("");
     try {
@@ -88,11 +88,36 @@ export default function AxiomsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }
 
   useEffect(() => {
-    void load(limit);
-  }, [load, limit]);
+    let cancelled = false;
+
+    const run = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await fetchAxioms(limit);
+        if (!cancelled) {
+          setAxioms(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [limit]);
 
   return (
     <Shell>

@@ -95,11 +95,10 @@ export default function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>([]);
-  const [liveFindings, setLiveFindings] = useState<LiveFinding[]>([]);
-  const [report, setReport] = useState<string>("");
-  const [error, setError] = useState<string>("");
+  const [streamReport, setStreamReport] = useState<string>("");
+  const [streamError, setStreamError] = useState<string>("");
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [elapsedMs, setElapsedMs] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
 
   const eventsRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -118,28 +117,20 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    loadJobs();
-    const interval = setInterval(loadJobs, 5000);
-    return () => clearInterval(interval);
+    void loadJobs();
+    const interval = window.setInterval(() => {
+      void loadJobs();
+    }, 5000);
+    return () => window.clearInterval(interval);
   }, [loadJobs]);
 
   useEffect(() => {
     if (!startedAt || !activeJobId) return;
-    const tick = () => setElapsedMs(Date.now() - startedAt);
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
+    const id = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => window.clearInterval(id);
   }, [startedAt, activeJobId]);
-
-  useEffect(() => {
-    if (!activeJobId || !startedAt) return;
-    const job = jobs.find((j) => j.id === activeJobId);
-    if (!job) return;
-    if (job.status === "done" || job.status === "error") {
-      setElapsedMs(Date.now() - startedAt);
-      setStartedAt(null);
-    }
-  }, [jobs, activeJobId, startedAt]);
 
   useEffect(() => {
     if (eventsRef.current) {
@@ -156,16 +147,15 @@ export default function DashboardPage() {
   const openStream = useCallback((jobId: string) => {
     sseRef.current?.close();
     setEvents([]);
-    setReport("");
-    setError("");
+    setStreamReport("");
+    setStreamError("");
     setActiveJobId(jobId);
     setStartedAt(Date.now());
-    setElapsedMs(0);
+    setNow(Date.now());
 
     const es = new EventSource(`/api/jobs/${jobId}/stream`);
     sseRef.current = es;
 
-    setLiveFindings([]);
 
     es.onmessage = (e) => {
       const data = e.data as string;
@@ -183,24 +173,20 @@ export default function DashboardPage() {
       try {
         const parsed = JSON.parse(data);
         if (parsed.type === "event") setEvents((prev) => [...prev, parsed.message]);
-        if (parsed.type === "report") setReport(parsed.content);
-        if (parsed.type === "error") setError(parsed.message);
+        if (parsed.type === "report") setStreamReport(parsed.content);
+        if (parsed.type === "error") setStreamError(parsed.message);
         if (parsed.type === "finding" && parsed.data) {
-          setLiveFindings((prev) => {
-            const next = [...prev];
-            const item: LiveFinding = {
-              index: Number(parsed.data.index ?? next.length + 1),
-              subQuery: String(parsed.data.sub_query ?? "").trim(),
-              summary: String(parsed.data.summary ?? "").trim(),
-            };
-            const existingIdx = next.findIndex((f) => f.index === item.index);
-            if (existingIdx >= 0) {
-              next[existingIdx] = item;
-            } else {
-              next.push(item);
-            }
-            return next;
-          });
+          const item: LiveFinding = {
+            index: Number(parsed.data.index ?? 0),
+            subQuery: String(parsed.data.sub_query ?? "").trim(),
+            summary: String(parsed.data.summary ?? "").trim(),
+          };
+          if (item.index > 0) {
+            setEvents((prev) => [
+              ...prev,
+              `Finding ${item.index}: ${item.subQuery || "sub-query"} — ${item.summary || "update received"}`,
+            ]);
+          }
         }
       } catch {
         setEvents((prev) => [...prev, data]);
@@ -230,7 +216,7 @@ export default function DashboardPage() {
       await loadJobs();
       openStream(job.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setStreamError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
@@ -241,11 +227,17 @@ export default function DashboardPage() {
     [jobs, activeJobId],
   );
 
+  const report = activeJob?.report ?? streamReport;
+  const error = activeJob?.error ?? streamError;
+
   useEffect(() => {
-    if (!activeJob) return;
-    if (activeJob.report) setReport(activeJob.report);
-    if (activeJob.error) setError(activeJob.error);
-  }, [activeJob]);
+    if (!startedAt || !activeJob) return;
+    if (activeJob.status === "done" || activeJob.status === "error") {
+      setStartedAt(null);
+    }
+  }, [activeJob, startedAt]);
+
+  const elapsedMs = startedAt ? Math.max(0, now - startedAt) : 0;
 
   const references = useMemo(
     () => extractReferences(activeJob, report),
