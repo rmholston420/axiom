@@ -1,0 +1,10 @@
+# minimal SearXNG settings for Axiom
+server:
+  secret_key: "CHANGE_ME_TO_RANDOM"
+  port: 8080
+  bind_address: "0.0.0.0"
+  base_url: ""
+search:
+  formats:
+    - html
+    - json

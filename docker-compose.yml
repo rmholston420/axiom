@@ -167,6 +167,25 @@ services:
       retries: 5
       start_period: 30s
 
+
+  axiom-searxng:
+    image: searxng/searxng:latest
+    container_name: axiom-searxng
+    restart: unless-stopped
+    ports:
+      - "${AXIOM_SEARXNG_PORT:-7300}:8080"
+    environment:
+      - SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
+    volumes:
+      # minimal, you can refine later
+      - ./ops/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
 volumes:
   axiom_redis_data:
   axiom_neo4j_data:
