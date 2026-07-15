@@ -36,8 +36,8 @@ class DummyWorker:
 
 
 class DummyTask:
-    def __init__(self, coro):
-        self._task = asyncio.create_task(coro)
+    def __init__(self, coro, real_create_task):
+        self._task = real_create_task(coro)
         self.cancelled = False
         self.awaited = False
 
@@ -68,8 +68,12 @@ async def test_lifespan_sets_and_cleans_app_state(monkeypatch):
     monkeypatch.setattr(dependencies, "QueueWorker", DummyWorker)
     monkeypatch.setattr(dependencies, "JobStore", DummyJobStore)
 
-    real_create_task = dependencies.asyncio.create_task
-    monkeypatch.setattr(dependencies.asyncio, "create_task", lambda coro: DummyTask(coro))
+    real_create_task = asyncio.create_task
+    monkeypatch.setattr(
+        dependencies.asyncio,
+        "create_task",
+        lambda coro: DummyTask(coro, real_create_task),
+    )
 
     app = FastAPI()
 
