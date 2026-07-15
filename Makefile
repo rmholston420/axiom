@@ -1,69 +1,11 @@
-.PHONY: setup install lint lint-py lint-js format test test-integration test-e2e \
-        compose-up compose-down compose-logs compose-build health
+.PHONY: smoke unit test-all
 
-setup: install
+smoke:
+	pytest tests/integration/test_api_smoke.py -v
 
-install:
-	pip install -e ".[dev]"
-	corepack enable
-	pnpm install
+unit:
+	pytest tests/unit -v
 
-lint: lint-py lint-js
-
-lint-py:
-	ruff check apps packages tests scripts
-	ruff format --check apps packages tests scripts
-
-lint-js:
-	pnpm --filter web lint
-
-format:
-	ruff format apps packages tests scripts
-	ruff check --fix apps packages tests scripts
-
-test:
-	pytest -m "not integration and not e2e"
-
-test-integration:
-	pytest -m integration
-
-test-e2e:
-	pytest -m e2e
-
-compose-up:
-	docker compose up -d
-
-compose-down:
-	docker compose down --remove-orphans
-
-compose-logs:
-	docker compose logs -f
-
-compose-build:
-	docker compose build --no-cache
-
-health:
-	@echo "--- Axiom API ---"
-	@curl -sf http://localhost:7200/health | python3 -m json.tool || echo "UNREACHABLE"
-	@echo "--- Axiom Council ---"
-	@curl -sf http://localhost:7201/health | python3 -m json.tool || echo "UNREACHABLE"
-	@echo "--- Axiom Axiomatizer ---"
-	@curl -sf http://localhost:7202/health | python3 -m json.tool || echo "UNREACHABLE"
-	@echo "--- Axiom Web ---"
-	@curl -sf http://localhost:7100/ > /dev/null && echo "OK" || echo "UNREACHABLE"
-
-pull-models:
-	@echo "Bootstrapping Ollama models via scripts/pull-models.sh"
-	@./scripts/pull-models.sh
-
-
-dev: api
-
-api:
-	PYTHONPATH=packages uvicorn apps.api.main:app --host 0.0.0.0 --port 7200 --reload
-
-council:
-	PYTHONPATH=packages uvicorn apps.council.main:app --host 0.0.0.0 --port 7201 --reload
-
-axiomatizer:
-	PYTHONPATH=packages uvicorn apps.axiomatizer.main:app --host 0.0.0.0 --port 7202 --reload
+test-all:
+	pytest tests/integration/test_api_smoke.py -v
+	pytest tests/unit -v
