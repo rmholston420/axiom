@@ -287,6 +287,7 @@ export default function GraphClient({
               const nodeId = String(node.id ?? "");
               const isActive = neighborIds.size === 0 || neighborIds.has(nodeId);
               const color = nodeColorMap[String(node.type ?? "")] ?? "#888";
+              if (node.x == null || node.y == null) return;
               const fontSize = Math.max(10, 12 / globalScale);
               ctx.beginPath();
               ctx.arc(node.x, node.y, isActive ? 7 : 5.5, 0, 2 * Math.PI, false);
