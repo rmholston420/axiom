@@ -14,23 +14,21 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Ensure monorepo packages/ parent is on sys.path so axiom_* imports resolve
-repo_root = Path(__file__).resolve().parent.parent
-packages_root = repo_root / "packages"
-if str(packages_root) not in sys.path:
-    sys.path.insert(0, str(packages_root))
-
 from dotenv import load_dotenv
-
-load_dotenv(repo_root / ".env")
-
-from neo4j import AsyncGraphDatabase  # noqa: E402
-
-from axiom_core.settings import settings  # noqa: E402
-from axiom_research.loop import ResearchLoop  # noqa: E402
 
 
 async def main(question: str) -> None:
+    repo_root = Path(__file__).resolve().parent.parent
+    packages_root = repo_root / "packages"
+    if str(packages_root) not in sys.path:
+        sys.path.insert(0, str(packages_root))
+
+    load_dotenv(repo_root / ".env")
+
+    from neo4j import AsyncGraphDatabase
+    from axiom_core.settings import settings
+    from axiom_research.loop import ResearchLoop
+
     print("\n🔬 Axiom — Local Research Workbench")
     print(f"   Question : {question}")
     print(f"   Neo4j    : {settings.axiom_neo4j_uri}")
