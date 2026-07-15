@@ -3,6 +3,19 @@ const isBrowser = typeof window !== "undefined";
 export const API_BASE =
   (isBrowser ? "/api" : (process.env.API_ORIGIN ?? "http://axiom-api:7200"));
 
+
+export type FindingResult = {
+  url?: string;
+  title?: string;
+  snippet?: string;
+};
+
+export type Finding = {
+  sub_query?: string;
+  summary?: string;
+  results?: FindingResult[];
+};
+
 export type JobStatus = "queued" | "running" | "done" | "error";
 
 export interface JobReference {

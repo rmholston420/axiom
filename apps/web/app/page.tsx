@@ -15,6 +15,12 @@ import {
   Link2,
 } from "lucide-react";
 
+type ReferenceItem = {
+  title: string;
+  url: string;
+  snippet: string;
+};
+
 const statusIcon: Record<string, React.ReactNode> = {
   queued: <Clock size={14} style={{ color: "var(--color-text-muted)" }} />,
   running: <Loader2 size={14} className="animate-spin" style={{ color: "var(--color-primary)" }} />,
@@ -33,7 +39,16 @@ function getJobQuestion(job: Job): string {
   return job.question ?? job.query ?? "(untitled job)";
 }
 
-function extractReferences(job: Job | null, report: string) {
+function extractReferences(job: Job | null, report: string): ReferenceItem[] {
+  const findingRefs = (job?.findings ?? [])
+    .flatMap((finding) => finding.results ?? [])
+    .filter((r) => r?.url || r?.title)
+    .map((r) => ({
+      title: r.title?.trim() || r.url?.trim() || "Untitled source",
+      url: r.url?.trim() || "",
+      snippet: r.snippet?.trim() || "",
+    }));
+
   const directRefs = [...(job?.references ?? []), ...(job?.sources ?? [])]
     .filter((r) => r?.url || r?.title)
     .map((r) => ({
@@ -42,9 +57,10 @@ function extractReferences(job: Job | null, report: string) {
       snippet: r.snippet?.trim() || "",
     }));
 
-  if (directRefs.length > 0) {
+  const combined = findingRefs.length > 0 ? findingRefs : directRefs;
+  if (combined.length > 0) {
     const seen = new Set<string>();
-    return directRefs.filter((r) => {
+    return combined.filter((r) => {
       const key = `${r.title}|${r.url}`;
       if (seen.has(key)) return false;
       seen.add(key);
