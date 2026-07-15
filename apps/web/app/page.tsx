@@ -344,9 +344,9 @@ export default function DashboardPage() {
                   key={job.id}
                   onClick={() => {
                     setActiveJobId(job.id);
-                    setReport(job.report ?? "");
                     setEvents([]);
-                    setError(job.error ?? "");
+                    setStreamReport(job.report ?? "");
+                    setStreamError(job.error ?? "");
                     if (job.status === "queued" || job.status === "running") {
                       openStream(job.id);
                     } else {
