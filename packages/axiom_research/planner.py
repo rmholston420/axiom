@@ -128,4 +128,4 @@ def _parse_json_list(text: str) -> list[str]:
                 return [str(item) for item in result]
         except json.JSONDecodeError:
             pass
-    return [line.strip().strip("-").strip('"') for line in cleaned.splitlines() if line.strip()]
+    return [line.strip().strip('"').strip("\'") for line in cleaned.splitlines() if line.strip()]
