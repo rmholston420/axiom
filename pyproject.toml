@@ -28,3 +28,8 @@ dev = [
 
 [tool.setuptools]
 py-modules = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["apps*", "packages*", "tests*"]
+namespaces = true

@@ -59,22 +59,19 @@ EDGE_TARGET_ID_EXPR = (
 NODES_CYPHER = f"""
 MATCH (n)
 WHERE n:Query OR n:Finding OR n:Source OR n:Axiom
+WITH n, properties(n) AS props
 RETURN
     {NODE_ID_EXPR} AS id,
     coalesce(
-        CASE
-            WHEN exists(n.label) THEN n.label
-            WHEN exists(n.statement) THEN n.statement
-            WHEN exists(n.title) THEN n.title
-            WHEN exists(n.text) THEN n.text
-            WHEN exists(n.url) THEN n.url
-            ELSE labels(n)[0]
-        END,
+        props["label"],
+        props["title"],
+        props["text"],
+        props["url"],
         labels(n)[0]
     ) AS label,
     labels(n)[0] AS type,
-    properties(n) AS props
-ORDER BY coalesce(n.created_at, "")
+    props AS props
+ORDER BY coalesce(props["created_at"], "")
 LIMIT 2000
 """
 
