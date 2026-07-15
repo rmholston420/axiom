@@ -18,7 +18,11 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/council", tags=["council"])
 
-_COUNCIL_BASE = f"http://127.0.0.1:{settings.axiom_council_port}"
+# Use the Docker service hostname when running in compose; fall back to localhost for local dev.
+_COUNCIL_BASE = (
+    getattr(settings, "axiom_council_url", None)
+    or f"http://axiom-council:{settings.axiom_council_port}"
+)
 
 
 class CouncilProxyRequest(BaseModel):
@@ -46,8 +50,10 @@ async def proxy_council(body: CouncilProxyRequest):
         log.error("Council service unreachable at %s", _COUNCIL_BASE)
         raise HTTPException(
             status_code=503,
-            detail=f"Axiom Council service is not reachable at {_COUNCIL_BASE}. "
-                   "Start it with: make council",
+            detail=(
+                f"Axiom Council service is not reachable at {_COUNCIL_BASE}. "
+                "Start it with: make council"
+            ),
         )
     except httpx.HTTPStatusError as exc:
         log.error("Council returned %s: %s", exc.response.status_code, exc.response.text)
