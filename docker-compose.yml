@@ -70,6 +70,8 @@ services:
         condition: service_healthy
       axiom-ollama:
         condition: service_started
+      axiom-searxng:
+        condition: service_healthy
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -79,6 +81,11 @@ services:
       - "${AXIOM_API_PORT:-7200}:7200"
     env_file:
       - .env
+    environment:
+      AXIOM_SEARXNG_URL: http://axiom-searxng:8080
+      AXIOM_NEO4J_URI: bolt://axiom-neo4j:7687
+      AXIOM_OLLAMA_BASE_URL: http://axiom-ollama:11434
+      AXIOM_REDIS_URL: redis://axiom-redis:6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -98,6 +105,8 @@ services:
         condition: service_healthy
       axiom-ollama:
         condition: service_started
+      axiom-searxng:
+        condition: service_healthy
     build:
       context: .
       dockerfile: apps/council/Dockerfile
@@ -107,6 +116,11 @@ services:
       - "${AXIOM_COUNCIL_PORT:-7201}:7201"
     env_file:
       - .env
+    environment:
+      AXIOM_SEARXNG_URL: http://axiom-searxng:8080
+      AXIOM_NEO4J_URI: bolt://axiom-neo4j:7687
+      AXIOM_OLLAMA_BASE_URL: http://axiom-ollama:11434
+      AXIOM_REDIS_URL: redis://axiom-redis:6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -126,6 +140,8 @@ services:
         condition: service_healthy
       axiom-ollama:
         condition: service_started
+      axiom-searxng:
+        condition: service_healthy
     build:
       context: .
       dockerfile: apps/axiomatizer/Dockerfile
@@ -135,6 +151,11 @@ services:
       - "${AXIOM_AXIOMATIZER_PORT:-7202}:7202"
     env_file:
       - .env
+    environment:
+      AXIOM_SEARXNG_URL: http://axiom-searxng:8080
+      AXIOM_NEO4J_URI: bolt://axiom-neo4j:7687
+      AXIOM_OLLAMA_BASE_URL: http://axiom-ollama:11434
+      AXIOM_REDIS_URL: redis://axiom-redis:6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:

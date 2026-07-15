@@ -1,10 +1,22 @@
-# minimal SearXNG settings for Axiom
-server:
-  secret_key: "CHANGE_ME_TO_RANDOM"
-  port: 8080
-  bind_address: "0.0.0.0"
-  base_url: ""
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "Axiom SearXNG"
+
 search:
+  safe_search: 0
   formats:
     - html
     - json
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "axiom-local-dev-secret-key-change-me"
+
+ui:
+  static_use_hash: true
+
+redis:
+  url: false
