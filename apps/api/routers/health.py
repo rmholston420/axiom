@@ -71,6 +71,13 @@ async def _check_valkey() -> ServiceStatus:
 @router.get("/health", response_model=HealthResponse)
 async def health_check(request: Request):
     """Check connectivity to Ollama, SearXNG, Neo4j, and Valkey concurrently."""
+
+    async def _call_maybe_with_request(fn):
+        try:
+            return await fn(request)
+        except TypeError:
+            return await fn()
+
     async def bounded_ollama(seconds: float = 3.0) -> ServiceStatus:
         try:
             return await asyncio.wait_for(_check_ollama(), timeout=seconds)
@@ -89,7 +96,7 @@ async def health_check(request: Request):
 
     async def bounded_neo4j(seconds: float = 3.0) -> ServiceStatus:
         try:
-            return await asyncio.wait_for(_check_neo4j(request), timeout=seconds)
+            return await asyncio.wait_for(_call_maybe_with_request(_check_neo4j), timeout=seconds)
         except TimeoutError:
             return ServiceStatus(name=ServiceName.NEO4J, ok=False, detail="timeout")
         except Exception as exc:
