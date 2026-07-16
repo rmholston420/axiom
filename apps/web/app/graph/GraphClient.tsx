@@ -490,6 +490,19 @@ export default function GraphClient({
             nodeAutoColorBy="type"
                         onNodeHover={(node: GraphNodeDatum | null) => setHoverNodeId(node?.id != null ? String(node.id) : null)}
             onNodeClick={(node: GraphNodeDatum) => setSelectedNodeId(node?.id != null ? String(node.id) : null)}
+            linkWidth={(link: ForceLinkObject) => {
+              const sourceId = getLinkEndpointId(link.source);
+              const targetId = getLinkEndpointId(link.target);
+              const denseNeighborhood = neighborIds.has(sourceId) && neighborIds.has(targetId);
+
+              const isFocused =
+                (hoverNodeId != null && (sourceId === hoverNodeId || targetId === hoverNodeId)) ||
+                (selectedNodeId != null && (sourceId === selectedNodeId || targetId === selectedNodeId));
+
+              if (isFocused && denseNeighborhood) return 5.5;
+              if (isFocused) return 4.2;
+              return denseNeighborhood ? 2.8 : 1.8;
+            }}
             linkColor={(link: ForceLinkObject) => {
               const relationship = getLinkRelationship(link);
               if (relationship === "MENTIONS" || relationship === "SUPPORTS") return "rgba(250,249,246,0.92)";
