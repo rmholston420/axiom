@@ -72,6 +72,29 @@ function ApprovalBadge({ approved }: { approved?: boolean }) {
 }
 
 
+
+function ManualReviewBadge({ show }: { show?: boolean }) {
+  if (!show) return null;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.25rem",
+        fontSize: "0.7rem",
+        fontWeight: 600,
+        padding: "0.15rem 0.5rem",
+        borderRadius: "var(--radius-full)",
+        color: "var(--color-primary)",
+        background: "color-mix(in oklab, var(--color-primary) 12%, transparent)",
+        border: "1px solid color-mix(in oklab, var(--color-primary) 30%, transparent)",
+      }}
+    >
+      Manual review
+    </span>
+  );
+}
+
 function EvaluationWarningBadge({ show }: { show?: boolean }) {
   if (!show) return null;
   return (
@@ -540,6 +563,7 @@ export default function AxiomsPage() {
                     <ConfidenceBadge value={axiom.confidence ?? 0} />
                     <ApprovalBadge approved={axiom.approved} />
                     <EvaluationWarningBadge show={axiom.evaluation_warning} />
+                    <ManualReviewBadge show={(axiom.eval_reason ?? "").startsWith("Manually ")} />
                   </div>
 
                   {/* Approve / Reject buttons */}
