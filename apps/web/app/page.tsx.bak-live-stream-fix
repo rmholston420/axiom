@@ -200,30 +200,25 @@ export default function DashboardPage() {
   }, []);
 
   const openStream = useCallback((jobId: string) => {
-    if (streamRef.current) {
-      streamRef.current.close();
-    }
-
-    setActiveJobId(jobId);
+    sseRef.current?.close();
     setEvents([]);
-    setHasSeenEvent(false);
-    setLiveReport("");
-    setLiveError("");
-    setLiveFindings([]);
+      setHasSeenEvent(false);
+    setStreamReport("");
+    setStreamError("");
+    setActiveJobId(jobId);
+    setStartedAt(Date.now());
+    setNow(Date.now());
 
     const es = new EventSource(`/api/jobs/${jobId}/stream`);
-    streamRef.current = es;
+    sseRef.current = es;
+
 
     es.onmessage = (e) => {
       const data = e.data;
 
       if (data === "[DONE]" || data === "\"[DONE]\"") {
         es.close();
-        void loadJobs().then(() => {
-          setTimeout(() => {
-            void loadJobs();
-          }, 600);
-        });
+        setTimeout(() => refreshJobs(), 400);
         return;
       }
 
@@ -286,6 +281,36 @@ export default function DashboardPage() {
       if (fallback) {
         setHasSeenEvent(true);
         setEvents((prev) => [...prev, fallback]);
+      }
+    };
+            setLiveFindings((prev) => [...prev, finding]);
+            setEvents((prev) => [
+              ...prev,
+              [finding.index ? `Finding ${finding.index}:` : "Finding:", finding.sub_query, finding.summary]
+                .filter(Boolean)
+                .join(" ")
+            ]);
+            return;
+          }
+
+          setEvents((prev) => [...prev, data]);
+          return;
+        }
+
+        if (String(data).trim()) {
+          setHasSeenEvent(true);
+          setEvents((prev) => [...prev, data]);
+        }
+      };
+          if (item.index > 0) {
+            setEvents((prev) => [
+              ...prev,
+              `Finding ${item.index}: ${item.subQuery || "sub-query"} — ${item.summary || "update received"}`,
+            ]);
+          }
+        }
+      } catch {
+        setEvents((prev) => [...prev, data]);
       }
     };
 
