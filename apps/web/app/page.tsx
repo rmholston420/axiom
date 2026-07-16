@@ -103,6 +103,16 @@ function extractReferences(job: Job | null, report: string): ReferenceItem[] {
     .map((url) => ({ title: url, url, snippet: "" }));
 }
 
+function classifyStreamEventLine(line: string) {
+  const value = String(line ?? "").trim();
+  if (!value) return "default" as const;
+  if (/^status:/i.test(value)) return "status" as const;
+  if (/^finding\b/i.test(value)) return "finding" as const;
+  if (/error|failed|exception/i.test(value)) return "error" as const;
+  if (/^done\b|report generated|completed/i.test(value)) return "done" as const;
+  return "default" as const;
+}
+
 export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
@@ -751,12 +761,87 @@ export default function DashboardPage() {
                       }}
                     >
                       {!hasSeenEvent && <span style={{ opacity: 0.5 }}>Waiting for events…</span>}
-                      {events.map((ev, i) => (
-                        <div key={i} style={{ marginBottom: "0.125rem" }}>
-                          <span style={{ color: "var(--color-primary)", marginRight: "0.5rem" }}>›</span>
-                          {ev}
+                      {events.map((ev, i) => {
+                      const kind = classifyStreamEventLine(ev);
+
+                      const tone =
+                        kind === "status"
+                          ? {
+                              bullet: "var(--color-blue)",
+                              text: "var(--color-text)",
+                              background: "rgba(59,130,246,0.08)",
+                              border: "rgba(59,130,246,0.18)",
+                              weight: 600,
+                            }
+                          : kind === "finding"
+                            ? {
+                                bullet: "var(--color-primary)",
+                                text: "var(--color-text)",
+                                background: "rgba(16,185,129,0.08)",
+                                border: "rgba(16,185,129,0.18)",
+                                weight: 500,
+                              }
+                            : kind === "error"
+                              ? {
+                                  bullet: "#fda4af",
+                                  text: "#fecdd3",
+                                  background: "rgba(127,29,29,0.22)",
+                                  border: "rgba(248,113,113,0.25)",
+                                  weight: 600,
+                                }
+                              : kind === "done"
+                                ? {
+                                    bullet: "#c4b5fd",
+                                    text: "var(--color-text)",
+                                    background: "rgba(139,92,246,0.10)",
+                                    border: "rgba(139,92,246,0.22)",
+                                    weight: 600,
+                                  }
+                                : {
+                                    bullet: "var(--color-text-muted)",
+                                    text: "var(--color-text-muted)",
+                                    background: "transparent",
+                                    border: "transparent",
+                                    weight: 400,
+                                  };
+
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: "0.5rem",
+                            marginBottom: "0.375rem",
+                            padding: "0.375rem 0.5rem",
+                            borderRadius: "0.625rem",
+                            background: tone.background,
+                            border: `1px solid ${tone.border}`,
+                            color: tone.text,
+                            fontWeight: tone.weight,
+                          }}
+                        >
+                          <span
+                            style={{
+                              color: tone.bullet,
+                              flex: "0 0 auto",
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            ›
+                          </span>
+                          <span
+                            style={{
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                              flex: 1,
+                            }}
+                          >
+                            {ev}
+                          </span>
                         </div>
-                      ))}
+                      );
+                    })}
                     </div>
                   </div>
                 )}
