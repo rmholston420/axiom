@@ -50,9 +50,12 @@ class DummyClient:
         self.hashes = {}
         self.queue = []
         self.published = []
+        self.streams = {}
+        self.xadd_calls = []
         self.pubsub_instance = None
         self.blpop_items = []
         self.blpop_error = None
+        self._seq = 0
 
     async def hset(self, key, field, value):
         self.hashes.setdefault(key, {})[field] = value
@@ -68,6 +71,20 @@ class DummyClient:
 
     async def publish(self, channel, msg):
         self.published.append((channel, msg))
+
+    async def xadd(self, key, fields, maxlen=None, approximate=None):
+        self._seq += 1
+        entry_id = f"1-{self._seq}"
+        self.streams.setdefault(key, []).append((entry_id, fields))
+        self.xadd_calls.append((key, fields, maxlen, approximate))
+        return entry_id
+
+    async def xrange(self, key, start, end):
+        entries = list(self.streams.get(key, []))
+        if start.startswith("("):
+            floor = start[1:]
+            entries = [entry for entry in entries if entry[0] > floor]
+        return entries
 
     async def blpop(self, key, timeout=0):
         if self.blpop_error is not None:
@@ -194,13 +211,18 @@ async def test_enqueue_creates_job_and_pushes_queue(monkeypatch):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_publish_emits_json_event(monkeypatch):
+async def test_append_and_publish_emits_json_event(monkeypatch):
     client = DummyClient()
     worker = qw.QueueWorker(driver=object(), valkey=DummyValkey(client))
     monkeypatch.setattr(qw, "_now", lambda: "2026-07-15T12:00:00+00:00")
 
-    await worker._publish("job-9", "status", {"status": "running"})
+    await worker._append_and_publish("job-9", "status", {"status": "running"})
 
+    assert len(client.xadd_calls) == 1
+    stream_key, fields, maxlen, approximate = client.xadd_calls[0]
+    assert stream_key == "axiom:events:job-9"
+    assert maxlen == qw.STREAM_MAXLEN
+    assert approximate is True
     assert len(client.published) == 1
     channel, payload = client.published[0]
     assert channel == "axiom:stream:job-9"
@@ -210,6 +232,7 @@ async def test_publish_emits_json_event(monkeypatch):
         "data": {"status": "running"},
         "ts": "2026-07-15T12:00:00+00:00",
     }
+    assert json.loads(fields["payload"]) == data
 
 
 @pytest.mark.unit
@@ -221,7 +244,7 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
     events = []
     updates = []
 
-    async def fake_publish(job_id, event, data):
+    async def fake_append_and_publish(job_id, event, data):
         events.append((job_id, event, data))
 
     async def fake_update(job_id, **fields):
@@ -231,9 +254,12 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
         return {"id": job_id, "question": "What is Axiom?"}
 
     monkeypatch.setattr(qw, "ResearchLoop", SuccessLoop)
-    worker._publish = fake_publish
+    worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
     worker._store.get = fake_get
+    monkeypatch.setattr(qw, "_now", lambda: "2026-07-15T12:00:00+00:00")
+    monkeypatch.setattr(qw, "_now_dt", lambda: qw.datetime(2026, 7, 15, 12, 0, 0, tzinfo=qw.UTC))
+    monkeypatch.setattr(qw, "_elapsed", lambda start: 1.23)
 
     class DummySettings:
         axiom_breadth = 4
@@ -242,28 +268,32 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
 
     await worker._process("job-1")
 
-    assert updates[0] == ("job-1", {"status": JobStatus.RUNNING.value})
+    assert updates[0] == ("job-1", {"started_at": "2026-07-15T12:00:00+00:00"})
+    assert updates[1] == ("job-1", {"status": JobStatus.RUNNING.value})
     assert updates[-1] == (
         "job-1",
-        {"status": JobStatus.DONE.value, "report": "report for What is Axiom?"},
+        {
+            "status": JobStatus.DONE.value,
+            "report": "report for What is Axiom?",
+            "elapsed_seconds": 1.23,
+            "completed_at": "2026-07-15T12:00:00+00:00",
+        },
     )
 
-    assert events[0] == ("job-1", "status", {"status": "running"})
-    assert events[1] == ("job-1", "progress", {"msg": "Planning sub-queries"})
-    assert events[2] == (
-        "job-1",
-        "finding",
-        {"index": 1, "sub_query": "sub-1", "summary": "summary 1"},
-    )
-    assert events[3] == (
-        "job-1",
-        "finding",
-        {"index": 2, "sub_query": "sub-2", "summary": "summary 2"},
-    )
+    assert events[0] == ("job-1", "response.created", {"job_id": "job-1", "status": "queued"})
+    assert events[1] == ("job-1", "response.status", {"status": "running"})
     assert events[-1] == (
         "job-1",
-        "done",
-        {"status": "done", "report": "report for What is Axiom?"},
+        "response.completed",
+        {
+            "status": "done",
+            "report": "report for What is Axiom?",
+            "finding_count": 2,
+            "query_id": "job-1",
+            "elapsed_seconds": 1.23,
+            "started_at": "2026-07-15T12:00:00+00:00",
+            "completed_at": "2026-07-15T12:00:00+00:00",
+        },
     )
 
 
@@ -276,7 +306,7 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
     events = []
     updates = []
 
-    async def fake_publish(job_id, event, data):
+    async def fake_append_and_publish(job_id, event, data):
         events.append((job_id, event, data))
 
     async def fake_update(job_id, **fields):
@@ -286,9 +316,12 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
         return {"id": job_id, "question": "What is Axiom?"}
 
     monkeypatch.setattr(qw, "ResearchLoop", FailureLoop)
-    worker._publish = fake_publish
+    worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
     worker._store.get = fake_get
+    monkeypatch.setattr(qw, "_now", lambda: "2026-07-15T12:00:00+00:00")
+    monkeypatch.setattr(qw, "_now_dt", lambda: qw.datetime(2026, 7, 15, 12, 0, 0, tzinfo=qw.UTC))
+    monkeypatch.setattr(qw, "_elapsed", lambda start: 2.34)
 
     class DummySettings:
         axiom_breadth = 4
@@ -297,11 +330,30 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
 
     await worker._process("job-2")
 
-    assert updates[0] == ("job-2", {"status": JobStatus.RUNNING.value})
-    assert updates[-1] == ("job-2", {"status": JobStatus.FAILED.value, "error": "loop failed"})
-    assert events[0] == ("job-2", "status", {"status": "running"})
-    assert events[1] == ("job-2", "progress", {"msg": "Planning sub-queries"})
-    assert events[-1] == ("job-2", "error", {"error": "loop failed"})
+    assert updates[0] == ("job-2", {"started_at": "2026-07-15T12:00:00+00:00"})
+    assert updates[1] == ("job-2", {"status": JobStatus.RUNNING.value})
+    assert updates[-1] == (
+        "job-2",
+        {
+            "status": JobStatus.FAILED.value,
+            "error": "loop failed",
+            "elapsed_seconds": 2.34,
+            "completed_at": "2026-07-15T12:00:00+00:00",
+        },
+    )
+    assert events[0] == ("job-2", "response.created", {"job_id": "job-2", "status": "queued"})
+    assert events[1] == ("job-2", "response.status", {"status": "running"})
+    assert events[-1] == (
+        "job-2",
+        "error",
+        {
+            "message": "loop failed",
+            "error": "loop failed",
+            "elapsed_seconds": 2.34,
+            "started_at": "2026-07-15T12:00:00+00:00",
+            "completed_at": "2026-07-15T12:00:00+00:00",
+        },
+    )
 
 
 @pytest.mark.unit
@@ -441,14 +493,12 @@ async def test_sse_stream_yields_existing_done_status_and_exits():
     async for chunk in qw.sse_stream(DummyValkey(client), job_id):
         chunks.append(chunk)
 
-    assert len(chunks) == 2
-    assert '"event": "status"' in chunks[0]
+    assert len(chunks) == 1
+    assert '"event": "response.status"' in chunks[0]
     assert '"status": "done"' in chunks[0]
-    assert '"event": "done"' in chunks[1]
-    assert '"status": "done"' in chunks[1]
-    assert client.pubsub_instance.subscribed == ["axiom:stream:job-7"]
-    assert client.pubsub_instance.unsubscribed == ["axiom:stream:job-7"]
-    assert client.pubsub_instance.closed is True
+    assert client.pubsub_instance.subscribed == []
+    assert client.pubsub_instance.unsubscribed == []
+    assert client.pubsub_instance.closed is False
 
 
 @pytest.mark.unit
@@ -462,8 +512,8 @@ async def test_sse_stream_yields_messages_until_done():
     client.pubsub_instance = DummyPubSub(
         messages=[
             {"type": "subscribe", "data": 1},
-            {"type": "message", "data": json.dumps({"event": "progress", "data": {"msg": "step"}})},
-            {"type": "message", "data": json.dumps({"event": "done", "data": {"status": "done"}})},
+            {"type": "message", "data": json.dumps({"event": "response.searching", "data": {"query": "step"}})},
+            {"type": "message", "data": json.dumps({"event": "response.completed", "data": {"status": "done"}})},
         ]
     )
 
@@ -473,6 +523,8 @@ async def test_sse_stream_yields_messages_until_done():
 
     assert len(chunks) == 3
     assert '"status": "running"' in chunks[0]
-    assert '"event": "progress"' in chunks[1]
-    assert '"event": "done"' in chunks[2]
+    assert '"event": "response.searching"' in chunks[1]
+    assert '"event": "response.completed"' in chunks[2]
+    assert client.pubsub_instance.subscribed == ["axiom:stream:job-8"]
+    assert client.pubsub_instance.unsubscribed == ["axiom:stream:job-8"]
     assert client.pubsub_instance.closed is True

@@ -14,7 +14,7 @@ def test_root_route_returns_service_metadata():
     assert response.status_code == 200
     body = response.json()
     assert body["service"] == "Axiom API"
-    assert body["version"] == "0.6.0"
+    assert body["version"] == "0.7.0"
 
 
 @pytest.mark.unit

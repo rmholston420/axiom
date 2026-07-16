@@ -57,7 +57,7 @@ def test_stream_job_returns_404_when_job_missing():
 def test_stream_job_returns_sse_response(monkeypatch):
     called = {}
 
-    async def fake_sse_stream(valkey, job_id):
+    async def fake_sse_stream(valkey, job_id, last_id=None):
         called["valkey"] = valkey
         called["job_id"] = job_id
         yield b"data: hello\n\n"
