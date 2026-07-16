@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookMarked, CheckCircle2, XCircle, Loader2, RefreshCw, AlertCircle, Filter } from "lucide-react";
+import { BookMarked, CheckCircle2, XCircle, Loader2, RefreshCw, AlertCircle, Filter, Copy } from "lucide-react";
 import Shell from "@/components/Shell";
 import { fetchAxioms, type AxiomRecord } from "@/lib/api";
 
@@ -100,6 +100,8 @@ export default function AxiomsPage() {
   const [error, setError] = useState("");
   const [limit, setLimit] = useState(25);
   const [showWarningsOnly, setShowWarningsOnly] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [copyMessage, setCopyMessage] = useState("");
 
   async function load(n: number) {
     setLoading(true);
@@ -114,10 +116,49 @@ export default function AxiomsPage() {
     }
   }
 
-  const warningCount = axioms.filter((a) => a.evaluation_warning === true).length;
-  const visibleAxioms = showWarningsOnly
-    ? axioms.filter((a) => a.evaluation_warning === true)
-    : axioms;
+  const warningAxioms = axioms.filter((a) => a.evaluation_warning === true);
+  const warningCount = warningAxioms.length;
+  const visibleAxioms = (showWarningsOnly ? warningAxioms : axioms).slice().sort((a, b) => {
+    const at = new Date(a.created_at).getTime();
+    const bt = new Date(b.created_at).getTime();
+    return sortOrder === "desc" ? bt - at : at - bt;
+  });
+
+  async function copyWarningExport() {
+    const exportRows = warningAxioms.slice().sort((a, b) => {
+      const at = new Date(a.created_at).getTime();
+      const bt = new Date(b.created_at).getTime();
+      return sortOrder === "desc" ? bt - at : at - bt;
+    });
+
+    const payload = [
+      `Warning-state axioms review export (${exportRows.length})`,
+      `Sort order: ${sortOrder === "desc" ? "Newest first" : "Oldest first"}`,
+      "",
+      ...exportRows.map((axiom, idx) => {
+        const pct = Math.round((axiom.confidence ?? 0) * 100);
+        return [
+          `${idx + 1}. ${axiom.label || `Axiom #${idx + 1}`}`,
+          `Statement: ${axiom.statement ?? ""}`,
+          `Confidence: ${pct}%`,
+          `Approved: ${axiom.approved === true ? "true" : "false"}`,
+          `Evaluation warning: ${axiom.evaluation_warning === true ? "true" : "false"}`,
+          `Eval note: ${axiom.evaluation_warning ? "Model evaluation failed, treating as approved" : (axiom.eval_reason ?? "")}`,
+          `Created: ${new Date(axiom.created_at).toLocaleString()}`,
+          `Persisted: ${axiom.persisted ? "true" : "false"}`
+        ].join("\n");
+      }),
+    ].join("\n\n");
+
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopyMessage(`Copied ${exportRows.length} warning-state axioms`);
+      window.setTimeout(() => setCopyMessage(""), 2500);
+    } catch (err) {
+      setCopyMessage(err instanceof Error ? err.message : "Copy failed");
+      window.setTimeout(() => setCopyMessage(""), 3000);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -203,6 +244,23 @@ export default function AxiomsPage() {
             </button>
 
             <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as "desc" | "asc")}
+              title="Sort axioms by created time"
+              style={{
+                background: "var(--color-surface)",
+                color: "var(--color-text)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                padding: "0.4rem 0.75rem",
+                fontSize: "0.85rem",
+              }}
+            >
+              <option value="desc">Newest first</option>
+              <option value="asc">Oldest first</option>
+            </select>
+
+            <select
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
               style={{
@@ -218,6 +276,33 @@ export default function AxiomsPage() {
                 <option key={n} value={n}>Show {n}</option>
               ))}
             </select>
+
+            <button
+              type="button"
+              onClick={() => void copyWarningExport()}
+              disabled={warningCount === 0}
+              title="Copy warning-state axioms for review"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+                padding: "0.4rem 0.875rem",
+                background: warningCount > 0
+                  ? "color-mix(in oklab, var(--color-primary) 10%, transparent)"
+                  : "var(--color-surface)",
+                border: warningCount > 0
+                  ? "1px solid color-mix(in oklab, var(--color-primary) 28%, transparent)"
+                  : "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                color: warningCount > 0 ? "var(--color-primary)" : "var(--color-text-faint)",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                cursor: warningCount === 0 ? "not-allowed" : "pointer",
+              }}
+            >
+              <Copy size={13} />
+              Copy warnings
+            </button>
 
             <button
               onClick={() => void load(limit)}
@@ -238,6 +323,18 @@ export default function AxiomsPage() {
               {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
               Refresh
             </button>
+
+            {copyMessage && (
+              <span
+                style={{
+                  fontSize: "0.78rem",
+                  color: "var(--color-text-muted)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {copyMessage}
+              </span>
+            )}
           </div>
         </div>
 
