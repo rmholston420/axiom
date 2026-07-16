@@ -23,6 +23,13 @@ type ReferenceItem = {
   snippet: string;
 };
 
+type StreamEventKind = "status" | "event" | "finding" | "error" | "done" | "default";
+
+type StreamEventItem = {
+  kind: StreamEventKind;
+  text: string;
+};
+
 type LiveFinding = {
   index: number;
   subQuery: string;
@@ -119,7 +126,7 @@ export default function DashboardPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  const [events, setEvents] = useState<string[]>([]);
+  const [events, setEvents] = useState<StreamEventItem[]>([]);
   const [hasSeenEvent, setHasSeenEvent] = useState(false);
   const [streamReport, setStreamReport] = useState<string>("");
   const [streamError, setStreamError] = useState<string>("");
@@ -131,6 +138,19 @@ export default function DashboardPage() {
 
   const eventsRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
+
+  const appendEvent = useCallback((kind: StreamEventKind, text: string) => {
+    const value = String(text ?? "").trim();
+    if (!value) return;
+
+    setHasSeenEvent(true);
+    setEvents((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && last.kind === kind && last.text === value) return prev;
+      return [...prev, { kind, text: value }];
+    });
+  }, []);
+
 
   const loadJobs = useCallback(async () => {
     try {
@@ -242,14 +262,14 @@ export default function DashboardPage() {
         parsed = JSON.parse(raw);
       } catch {
         setHasSeenEvent(true);
-        setEvents((prev) => [...prev, raw]);
+        appendEvent("default", raw);
         return;
       }
 
       const message = parseResearchStreamMessage(raw);
       if (!message) {
         setHasSeenEvent(true);
-        setEvents((prev) => [...prev, raw]);
+        appendEvent("default", raw);
         return;
       }
 
@@ -278,7 +298,7 @@ export default function DashboardPage() {
       if (message.type === "event") {
         const text = String(message.message ?? "").trim();
         if (text) {
-          setEvents((prev) => [...prev, text]);
+          appendEvent("event", text);
         }
         return;
       }
@@ -293,7 +313,7 @@ export default function DashboardPage() {
         const text = String(message.message ?? "Unknown error").trim();
         setStreamError(text);
         if (text) {
-          setEvents((prev) => [...prev, text]);
+          appendEvent("event", text);
         }
         return;
       }
@@ -328,13 +348,13 @@ export default function DashboardPage() {
 
         const findingLine = lineParts.join(" ");
         if (findingLine) {
-          setEvents((prev) => [...prev, findingLine]);
+          appendEvent("finding", findingLine);
         }
         return;
       }
 
       // fallback: last resort when we have an unrecognized shape
-      setEvents((prev) => [...prev, raw]);
+      appendEvent("default", raw);
     };
 
     es.onerror = () => {
@@ -762,7 +782,7 @@ export default function DashboardPage() {
                     >
                       {!hasSeenEvent && <span style={{ opacity: 0.5 }}>Waiting for events…</span>}
                       {events.map((ev, i) => {
-                      const kind = classifyStreamEventLine(ev);
+                      const kind = ev.kind;
 
                       const tone =
                         kind === "status"
@@ -837,7 +857,7 @@ export default function DashboardPage() {
                               flex: 1,
                             }}
                           >
-                            {ev}
+                            {ev.text}
                           </span>
                         </div>
                       );
