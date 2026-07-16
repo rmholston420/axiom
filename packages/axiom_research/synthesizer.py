@@ -18,6 +18,37 @@ _SYNTH_SYSTEM = (
 )
 
 
+def sanitize_redis_report(report: str) -> str:
+    """Post-process Redis-related sections to remove known false claims.
+
+    This is intentionally conservative: it only strips/edits lines that
+    contradict Redis docs (e.g., non-existent commands) and leaves all
+    other content unchanged.
+    """
+    lines = report.splitlines()
+    cleaned: list[str] = []
+    for line in lines:
+        # Drop explicit claims about a non-existent REPLAY command.
+        # Redis Streams use XRANGE / XREAD with entry IDs for replay,
+        # not a dedicated REPLAY command. See https://redis.io/docs/latest/commands/xadd/
+        if "REPLAY command" in line:
+            continue
+
+        # Soften or correct vague "replay feature" phrasing by pointing
+        # to the real primitives.
+        if "event replay feature" in line:
+            cleaned.append(
+                "Redis Streams support replay via XRANGE / XREAD "
+                "using entry IDs, combined with consumer offsets and "
+                "optional MAXLEN ~ / MINID ~ retention on XADD."
+            )
+            continue
+
+        cleaned.append(line)
+
+    return "\n".join(cleaned)
+
+
 class Synthesizer:
     def __init__(self, ollama: OllamaProvider) -> None:
         self._ollama = ollama

@@ -19,6 +19,7 @@ from axiom_core.settings import settings
 from axiom_providers.valkey import ValkeyProvider
 
 from .loop import ResearchLoop
+from .synthesizer import sanitize_redis_report
 
 log = logging.getLogger(__name__)
 
@@ -223,9 +224,16 @@ class QueueWorker:
             await self._append_and_publish(
                 job_id, "event", {"message": "Synthesized final report"}
             )
-            await self._store.update(job_id, status=JobStatus.DONE.value, report=result.report)
+            clean_report = sanitize_redis_report(result.report)
+            await self._store.update(
+                job_id,
+                status=JobStatus.DONE.value,
+                report=clean_report,
+            )
             await self._append_and_publish(
-                job_id, "done", {"status": "done", "report": result.report}
+                job_id,
+                "done",
+                {"status": "done", "report": clean_report},
             )
         except Exception as exc:  # noqa: BLE001
             log.exception("Job %s failed", job_id)
