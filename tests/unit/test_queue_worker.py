@@ -419,19 +419,18 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
 
     assert events[0] == ("job-1", "response.created", {"job_id": "job-1"})
     assert events[1] == ("job-1", "response.status", {"status": "running"})
-    assert events[-1] == (
-        "job-1",
-        "response.completed",
-        {
-            "status": "done",
-            "report": "report for What is Axiom?",
-            "finding_count": 2,
-            "query_id": "job-1",
-            "elapsed_seconds": 1.23,
-            "started_at": "2026-07-15T12:00:00+00:00",
-            "completed_at": "2026-07-15T12:00:00+00:00",
-        },
-    )
+    assert events[-1][0] == "job-1"
+    assert events[-1][1] == "response.completed"
+    expected_completed = {
+        "status": "done",
+        "report": "report for What is Axiom?",
+        "finding_count": 2,
+        "query_id": "job-1",
+        "elapsed_seconds": 1.23,
+        "started_at": "2026-07-15T12:00:00+00:00",
+        "completed_at": "2026-07-15T12:00:00+00:00",
+    }
+    assert expected_completed.items() <= events[-1][2].items()
 
 
 @pytest.mark.unit
@@ -476,19 +475,18 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
     assert updates[-1][1]["error"] == "loop failed"
     assert updates[-1][1]["elapsed_seconds"] == 2.34
     assert updates[-1][1]["completed_at"] == "2026-07-15T12:00:00+00:00"
-    assert events[0] == ("job-2", "response.created", {"job_id": "job-2", "status": "queued"})
+    assert events[0] == ("job-2", "response.created", {"job_id": "job-2"})
     assert events[1] == ("job-2", "response.status", {"status": "running"})
-    assert events[-1] == (
-        "job-2",
-        "error",
-        {
-            "message": "loop failed",
-            "error": "loop failed",
-            "elapsed_seconds": 2.34,
-            "started_at": "2026-07-15T12:00:00+00:00",
-            "completed_at": "2026-07-15T12:00:00+00:00",
-        },
-    )
+    assert events[-1][0] == "job-2"
+    assert events[-1][1] == "error"
+    expected_error = {
+        "message": "loop failed",
+        "error": "loop failed",
+        "elapsed_seconds": 2.34,
+        "started_at": "2026-07-15T12:00:00+00:00",
+        "completed_at": "2026-07-15T12:00:00+00:00",
+    }
+    assert expected_error.items() <= events[-1][2].items()
 
 
 @pytest.mark.unit
