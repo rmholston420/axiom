@@ -9,11 +9,9 @@ Exposes:
   DELETE /wiki/pages/{page_id}            remove a page
 """
 
-from __future__ import annotations
-
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/wiki", tags=["wiki"])
@@ -24,7 +22,7 @@ router = APIRouter(prefix="/wiki", tags=["wiki"])
 # The generator instance is stored on app.state.wiki_generator by main.py.
 # ---------------------------------------------------------------------------
 
-def _get_generator(request: Any) -> Any:
+def _get_generator(request: Request) -> Any:
     gen = getattr(request.app.state, "wiki_generator", None)
     if gen is None:
         raise HTTPException(status_code=503, detail="WikiGenerator not initialised")
