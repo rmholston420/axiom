@@ -56,19 +56,6 @@ type ForceLinkObject = {
   weight?: number;
 };
 
-type ForceGraphInstance = {
-  d3Force: (name: string) => {
-    distance?: (fn: (link: GraphLinkDatum) => number) => void;
-  } | undefined;
-  d3ReheatSimulation: () => void;
-  zoomToFit: (durationMs?: number, paddingPx?: number) => void;
-};
-
-
-function getNodeId(node: string | GraphNodeDatum | null | undefined): string {
-  if (typeof node === "string") return node;
-  return String(node?.id ?? "");
-}
 
 function getNodeLabel(node: GraphNodeDatum | null | undefined): string {
   return String(node?.label ?? node?.id ?? "node");
@@ -93,7 +80,7 @@ export default function GraphClient({
   const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const fg2dRef = useRef<ForceGraphMethods<GraphNodeDatum, GraphLinkDatum> | undefined>(undefined);
-  const fg3dRef = useRef<ForceGraphMethods<GraphNodeDatum, GraphLinkDatum> | undefined>(undefined);
+  const fg3dRef = useRef<ForceGraphMethods | undefined>(undefined);
 
   const load = async () => {
     setLoading(true);
@@ -182,7 +169,7 @@ export default function GraphClient({
     if (!graphData || !fg3dRef.current) return;
     const fg = fg3dRef.current;
     try {
-      fg.d3Force("link")?.distance?.((link: GraphLinkDatum) => {
+      fg.d3Force("link")?.distance?.((link: { source?: string | number | { id?: string | number }; target?: string | number | { id?: string | number } }) => {
         const sourceId = typeof link.source === "string" ? link.source : link.source.id;
         const targetId = typeof link.target === "string" ? link.target : link.target.id;
         return sourceId === targetId ? 120 : 145;
