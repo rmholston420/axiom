@@ -289,10 +289,8 @@ export default function DashboardPage() {
           ).trim() || "running";
 
         const statusLine = `Status: ${status}`;
-        setEvents((prev) =>
-          prev[prev.length - 1] === statusLine ? prev : [...prev, statusLine],
-        );
-        return;
+      appendEvent(status === "done" ? "done" : "status", statusLine);
+      return;
       }
 
       if (message.type === "event") {
@@ -312,10 +310,8 @@ export default function DashboardPage() {
       if (message.type === "error") {
         const text = String(message.message ?? "Unknown error").trim();
         setStreamError(text);
-        if (text) {
-          appendEvent("event", text);
-        }
-        return;
+      appendEvent("error", text);
+      return;
       }
 
       if (message.type === "finding" && message.data) {
