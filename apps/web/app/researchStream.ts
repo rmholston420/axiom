@@ -31,19 +31,14 @@ export type ResearchStreamEvent =
       data: {
         status: string;
         report: string;
-        finding_count: number;
-        query_id: string;
+        finding_count?: number;
+        query_id?: string;
         elapsed_seconds?: number | null;
         started_at?: string;
         completed_at?: string;
-        status: string;
-        report: string;
-        finding_count?: number;
-        query_id?: string;
       };
     }
-  | { event: "error"; data: { message: string; error?: string } }
-  // Legacy / catch-all for unknown events during rollout
+// Legacy / catch-all for unknown events during rollout
   | { event: string; data: Record<string, unknown> };
 
 /** Parse one SSE data line. Returns null on invalid JSON. */

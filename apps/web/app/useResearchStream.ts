@@ -38,6 +38,12 @@ export interface ResearchStreamState {
   errorMessage: string | null;
   /** Finding count from the completed event. */
   findingCount: number | null;
+  /** Total runtime in seconds from the completed event. */
+  elapsedSeconds: number | null;
+  /** UTC ISO timestamp when the backend started the job. */
+  startedAt: string;
+  /** UTC ISO timestamp when the backend finished the job. */
+  completedAt: string;
 }
 
 const INITIAL_STATE: ResearchStreamState = {
@@ -47,6 +53,9 @@ const INITIAL_STATE: ResearchStreamState = {
   sources: [],
   errorMessage: null,
   findingCount: null,
+  elapsedSeconds: null,
+  startedAt: "",
+  completedAt: "",
 };
 
 /** How often (ms) the buffer is flushed to React state. */
@@ -170,12 +179,21 @@ export function useResearchStream(
           const rep = typeof parsed.data.report === "string" ? parsed.data.report : "";
           if (rep) fullText.current = rep;
           const fc = typeof parsed.data.finding_count === "number" ? parsed.data.finding_count : null;
+          const elapsed =
+            typeof parsed.data.elapsed_seconds === "number" ? parsed.data.elapsed_seconds : null;
+          const startedAt =
+            typeof parsed.data.started_at === "string" ? parsed.data.started_at : "";
+          const completedAt =
+            typeof parsed.data.completed_at === "string" ? parsed.data.completed_at : "";
           setState((prev) => ({
             ...prev,
             text: fullText.current,
             phase: "done",
             currentQuery: null,
             findingCount: fc ?? prev.findingCount,
+            elapsedSeconds: elapsed,
+            startedAt,
+            completedAt,
           }));
           close();
           break;
