@@ -29,6 +29,7 @@ import asyncio
 import json
 import logging
 import uuid
+import httpx
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
@@ -78,6 +79,43 @@ def _elapsed(start: datetime) -> float:
     return round((_now_dt() - start).total_seconds(), 2)
 
 
+def _axiomatizer_base() -> str:
+    return (
+        getattr(settings, "axiom_axiomatizer_url", None)
+        or f"http://axiom-api:{settings.axiom_api_port}"
+    )
+
+
+async def _persist_axiom_from_report(
+    *,
+    question: str,
+    report: str,
+) -> dict[str, Any] | None:
+    if not settings.axiom_axiomatizer_enabled:
+        return None
+
+    report_text = (report or "").strip()
+    if len(report_text) < 10:
+        return None
+
+    label_source = (question or "").strip() or "Research axiom"
+    payload = {
+        "source_text": report_text,
+        "context": question,
+        "label": label_source[:80],
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            resp = await client.post(f"{_axiomatizer_base()}/axiomatizer", json=payload)
+        resp.raise_for_status()
+        data = resp.json()
+        return data if isinstance(data, dict) else None
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Axiomatizer persistence failed for question %r: %s", question, exc)
+        return None
+
+
 class JobStore:
     """Thin helper for reading/writing job state in Valkey hashes."""
 
@@ -95,6 +133,7 @@ class JobStore:
             "started_at": "",
             "completed_at": "",
             "elapsed_seconds": None,
+            "axiom_id": "",
             "report": "",
             "error": "",
         }
@@ -329,6 +368,18 @@ class QueueWorker:
 
             full_report = sanitize_redis_report("".join(accumulated))
 
+            axiomatizer_result = await _persist_axiom_from_report(
+                question=question,
+                report=full_report,
+            )
+            axiom_id = ""
+            if isinstance(axiomatizer_result, dict):
+                axiom_id = str(
+                    axiomatizer_result.get("axiom_id")
+                    or axiomatizer_result.get("axiomid")
+                    or ""
+                )
+
             # --- response.output_text.completed ---
             await self._append_and_publish(
                 job_id,
@@ -346,6 +397,7 @@ class QueueWorker:
                 report=full_report,
                 elapsed_seconds=elapsed,
                 completed_at=completed_at_iso,
+                axiom_id=axiom_id,
             )
 
             # --- response.completed (terminal) ---
@@ -360,6 +412,7 @@ class QueueWorker:
                     "elapsed_seconds": elapsed,
                     "started_at": started_at_iso,
                     "completed_at": completed_at_iso,
+                    "axiom_id": axiom_id,
                 },
             )
 

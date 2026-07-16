@@ -256,6 +256,10 @@ export default function DashboardPage() {
   );
 
   const liveReferenceCount = stream.sources.length || references.length;
+  const displayAxiomCreated =
+    stream.phase === "done"
+      ? Boolean(activeJob?.axiom_id)
+      : Boolean(activeJob?.axiom_id);
 
   return (
     <Shell>
@@ -641,6 +645,11 @@ export default function DashboardPage() {
                       {displayElapsed && (
                         <div style={{ color: "var(--color-text-muted)" }}>
                           Elapsed: {displayElapsed}
+                        </div>
+                      )}
+                      {displayAxiomCreated && (
+                        <div style={{ color: "var(--color-success)", fontWeight: 600 }}>
+                          Axiom created
                         </div>
                       )}
                     </div>
