@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.2.3] - 2026-07-15
+
+### Fixed
+
+- Restored correct axioms web proxy routing to the upstream axiomatizer endpoint so the graph view can load axioms again.
+- Fixed long-running council requests through the web proxy by increasing upstream request timeouts, preventing premature 504 failures.
+- Repaired SSE streaming for job reports by ensuring `/api/jobs/{id}/stream` proxies to the `axiom-api` container instead of localhost.
+
+### Changed
+
+- Removed the global Next.js `/api/:path*` rewrite in `apps/web/next.config.ts` to avoid misrouting API traffic inside Docker.
+- Standardized web-to-API routing around app routes under `apps/web/app/api/...` as the canonical proxy layer.
+- Standardized `API_ORIGIN` for containerized environments to use the Docker service name `http://axiom-api:7200` instead of `127.0.0.1`.
+
+### Added
+
+- Added `docs/web-architecture.md` documenting web/API architecture, container-safe origins, timeout expectations, and endpoint validation steps.
+- Added a `README.md` section summarizing the known-good web API routing configuration and troubleshooting guidance.
+
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
