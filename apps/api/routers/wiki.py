@@ -135,8 +135,9 @@ async def generate_source_page(body: SourcePageRequest, request: Any) -> WikiPag
     )
 
 
-@router.delete("/pages/{page_id:path}", status_code=204)
-async def delete_page(page_id: str, request: Any) -> None:
+@router.delete("/pages/{page_id:path}", status_code=204, response_class=Response)
+async def delete_page(page_id: str, request: Any) -> Response:
     """Remove a wiki page from the graph."""
     gen = _get_generator(request)
     await gen.delete_page(page_id)
+    return Response(status_code=204)
