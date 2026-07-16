@@ -303,8 +303,15 @@ export default function GraphClient({
             const targetId = getLinkEndpointId(link.target);
             const denseNeighborhood = neighborIds.has(sourceId) && neighborIds.has(targetId);
 
-            const strongAlpha = denseNeighborhood ? 0.95 : 0.8;
-            const softAlpha = denseNeighborhood ? 0.55 : 0.35;
+            const isFocused =
+              (hoverNodeId != null && (sourceId === hoverNodeId || targetId === hoverNodeId)) ||
+              (selectedNodeId != null && (sourceId === selectedNodeId || targetId === selectedNodeId));
+
+            const strongAlphaBase = denseNeighborhood ? 0.95 : 0.8;
+            const softAlphaBase = denseNeighborhood ? 0.55 : 0.35;
+
+            const strongAlpha = isFocused ? strongAlphaBase : strongAlphaBase * 0.7;
+            const softAlpha = isFocused ? softAlphaBase : softAlphaBase * 0.6;
 
             if (relationship === "MENTIONS" || relationship === "SUPPORTS") {
               return `rgba(79,163,163,${strongAlpha})`;
