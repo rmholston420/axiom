@@ -297,12 +297,23 @@ export default function GraphClient({
               ctx.fillStyle = isActive ? "#e5e7eb" : "rgba(148, 163, 184, 0.6)";
               ctx.fillText(String(node.label ?? node.id ?? "node"), (node.x ?? 0) + 10, (node.y ?? 0) + 4);
             }}
-            linkColor={(link: ForceLinkObject) => {
-              const relationship = getLinkRelationship(link);
-              if (relationship === "MENTIONS" || relationship === "SUPPORTS") return "rgba(79,163,163,0.8)";
-              if (relationship === "CONTRADICTS") return "rgba(245,158,11,0.8)";
-              return "rgba(148,163,184,0.35)";
-            }}
+          linkColor={(link: ForceLinkObject) => {
+            const relationship = getLinkRelationship(link);
+            const sourceId = getLinkEndpointId(link.source);
+            const targetId = getLinkEndpointId(link.target);
+            const denseNeighborhood = neighborIds.has(sourceId) && neighborIds.has(targetId);
+
+            const strongAlpha = denseNeighborhood ? 0.95 : 0.8;
+            const softAlpha = denseNeighborhood ? 0.55 : 0.35;
+
+            if (relationship === "MENTIONS" || relationship === "SUPPORTS") {
+              return `rgba(79,163,163,${strongAlpha})`;
+            }
+            if (relationship === "CONTRADICTS") {
+              return `rgba(245,158,11,${strongAlpha})`;
+            }
+            return `rgba(148,163,184,${softAlpha})`;
+          }}
             linkWidth={(link: ForceLinkObject) => {
               const sourceId = getLinkEndpointId(link.source);
               const targetId = getLinkEndpointId(link.target);
