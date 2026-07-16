@@ -48,6 +48,26 @@ type GraphLinkDatum = {
   type?: string;
 };
 
+type ForceGraph3DNode = {
+  id?: string | number;
+  x?: number;
+  y?: number;
+  z?: number;
+  vx?: number;
+  vy?: number;
+  vz?: number;
+  fx?: number;
+  fy?: number;
+  fz?: number;
+  [key: string]: unknown;
+};
+
+type ForceGraph3DLink = {
+  source?: string | number | ForceGraph3DNode;
+  target?: string | number | ForceGraph3DNode;
+  [key: string]: unknown;
+};
+
 
 type ForceLinkObject = {
   source?: string | number | GraphNodeDatum;
@@ -91,7 +111,7 @@ export default function GraphClient({
   const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const fg2dRef = useRef<ForceGraphMethods<GraphNodeDatum, GraphLinkDatum> | undefined>(undefined);
-  const fg3dRef = useRef<ForceGraphMethods<any, any> | undefined>(undefined);
+  const fg3dRef = useRef<ForceGraphMethods<ForceGraph3DNode, ForceGraph3DLink> | undefined>(undefined);
 
   const load = async () => {
     setLoading(true);
@@ -180,7 +200,7 @@ export default function GraphClient({
     if (!graphData || !fg3dRef.current) return;
     const fg = fg3dRef.current;
     try {
-      fg.d3Force("link")?.distance?.((link: { source?: string | number | { id?: string | number }; target?: string | number | { id?: string | number } }) => {
+      fg.d3Force("link")?.distance?.((link: ForceGraph3DLink) => {
         const sourceId = toNodeId(link.source);
         const targetId = toNodeId(link.target);
         return sourceId === targetId ? 120 : 145;
@@ -396,7 +416,7 @@ export default function GraphClient({
           />
         ) : (
           <ForceGraph3D
-           ref={(node) => { fg3dRef.current = node ?? undefined; }}
+           ref={fg3dRef}
            graphData={graphData}
            nodeVal={(node: GraphNodeDatum) => {
              const id = String(node.id);
