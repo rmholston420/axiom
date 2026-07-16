@@ -291,7 +291,11 @@ export default function GraphClient({
               const isFocused = hoverNodeId === nodeId || selectedNodeId === nodeId;
               if (node.x == null || node.y == null) return;
 
-              const radius = isFocused ? (isActive ? 9 : 7.5) : (isActive ? 7 : 5.5);
+              const nodeType = String(node.type ?? "");
+              const isSourceNode = nodeType === "Source";
+              const radius = isFocused
+                ? (isSourceNode ? (isActive ? 10.5 : 9) : (isActive ? 9 : 7.5))
+                : (isActive ? 7 : 5.5);
 
               // Halo for focused node
               if (isFocused) {
