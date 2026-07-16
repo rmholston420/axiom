@@ -505,9 +505,9 @@ export default function GraphClient({
             }}
             linkColor={(link: ForceLinkObject) => {
               const relationship = getLinkRelationship(link);
-              if (relationship === "MENTIONS" || relationship === "SUPPORTS") return "rgba(250,249,246,0.92)";
-              if (relationship === "CONTRADICTS") return "rgba(250,249,246,0.88)";
-              return "rgba(250,249,246,0.55)";
+              if (relationship === "MENTIONS" || relationship === "SUPPORTS") return "rgba(255,255,255,0.96)";
+              if (relationship === "CONTRADICTS") return "rgba(255,255,255,0.92)";
+              return "rgba(255,255,255,0.72)";
             }}
           />
         )}
