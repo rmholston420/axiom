@@ -344,7 +344,7 @@ export default function GraphClient({
             }
 
             const t = (hash % 360) / 360;
-            const angle = -0.5 + t;  # roughly [-0.5, 0.5]
+            const angle = -0.5 + t;
             return angle;
           }}
             nodeLabel={(node: GraphNodeDatum) => `${getNodeLabel(node)} (${getNodeType(node)})`}
