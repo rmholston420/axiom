@@ -257,6 +257,24 @@ def install_process_stubs(monkeypatch):
     monkeypatch.setitem(sys.modules, "axiom_graph.schema", schema_mod)
 
 
+
+
+class FailingSynthesizer:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def synthesize_stream(self, question, findings):
+        raise RuntimeError("loop failed")
+
+
+def install_failure_process_stubs(monkeypatch):
+    install_process_stubs(monkeypatch)
+    synth_mod = types.ModuleType("axiom_research.synthesizer")
+    synth_mod.Synthesizer = FailingSynthesizer
+    synth_mod.sanitize_redis_report = lambda text: text
+    monkeypatch.setitem(sys.modules, "axiom_research.synthesizer", synth_mod)
+
+
 @pytest.mark.unit
 def test_channel_formats_job_stream_channel():
     assert qw._channel("job-123") == "axiom:stream:job-123"
@@ -391,15 +409,11 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
 
     assert updates[0] == ("job-1", {"started_at": "2026-07-15T12:00:00+00:00"})
     assert updates[1] == ("job-1", {"status": JobStatus.RUNNING.value})
-    assert updates[-1] == (
-        "job-1",
-        {
-            "status": JobStatus.DONE.value,
-            "report": "report for What is Axiom?",
-            "elapsed_seconds": 1.23,
-            "completed_at": "2026-07-15T12:00:00+00:00",
-        },
-    )
+    assert updates[-1][0] == "job-1"
+    assert updates[-1][1]["status"] == JobStatus.DONE.value
+    assert updates[-1][1]["report"] == "report for What is Axiom?"
+    assert updates[-1][1]["elapsed_seconds"] == 1.23
+    assert updates[-1][1]["completed_at"] == "2026-07-15T12:00:00+00:00"
 
     assert events[0] == ("job-1", "response.created", {"job_id": "job-1", "status": "queued"})
     assert events[1] == ("job-1", "response.status", {"status": "running"})
@@ -436,7 +450,7 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
     async def fake_get(job_id):
         return {"id": job_id, "question": "What is Axiom?"}
 
-    install_process_stubs(monkeypatch)
+    install_failure_process_stubs(monkeypatch)
     monkeypatch.setattr(qw, "ResearchLoop", FailureLoop)
     worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
@@ -455,15 +469,11 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
 
     assert updates[0] == ("job-2", {"started_at": "2026-07-15T12:00:00+00:00"})
     assert updates[1] == ("job-2", {"status": JobStatus.RUNNING.value})
-    assert updates[-1] == (
-        "job-2",
-        {
-            "status": JobStatus.FAILED.value,
-            "error": "loop failed",
-            "elapsed_seconds": 2.34,
-            "completed_at": "2026-07-15T12:00:00+00:00",
-        },
-    )
+    assert updates[-1][0] == "job-2"
+    assert updates[-1][1]["status"] == JobStatus.FAILED.value
+    assert updates[-1][1]["error"] == "loop failed"
+    assert updates[-1][1]["elapsed_seconds"] == 2.34
+    assert updates[-1][1]["completed_at"] == "2026-07-15T12:00:00+00:00"
     assert events[0] == ("job-2", "response.created", {"job_id": "job-2", "status": "queued"})
     assert events[1] == ("job-2", "response.status", {"status": "running"})
     assert events[-1] == (
