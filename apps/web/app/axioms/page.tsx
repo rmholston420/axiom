@@ -141,7 +141,7 @@ function ApproveButtons({
   }
 
   const isApproved = axiom.approved === true;
-  const isPending = axiom.approved !== true;
+  const isRejected = axiom.approved === false;
 
   return (
     <div style={{ display: "flex", gap: "0.375rem", alignItems: "center" }}>
@@ -174,7 +174,7 @@ function ApproveButtons({
       </button>
       <button
         type="button"
-        disabled={busy || isPending}
+        disabled={busy || isRejected}
         onClick={() => void toggle(false)}
         title="Reject this axiom"
         aria-label="Reject axiom"
@@ -187,11 +187,11 @@ function ApproveButtons({
           fontWeight: 600,
           borderRadius: "var(--radius-md)",
           border: "1px solid color-mix(in oklab, var(--color-error) 35%, transparent)",
-          background: isPending
+          background: isRejected
             ? "color-mix(in oklab, var(--color-error) 14%, transparent)"
             : "var(--color-surface)",
-          color: isPending ? "var(--color-error)" : "var(--color-text-muted)",
-          cursor: isPending ? "default" : "pointer",
+          color: isRejected ? "var(--color-error)" : "var(--color-text-muted)",
+          cursor: isRejected ? "default" : "pointer",
           opacity: busy ? 0.6 : 1,
           transition: "background 180ms, color 180ms",
         }}
