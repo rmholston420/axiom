@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     axiom_searxng_url: str = "http://localhost:7300"
     axiom_neo4j_uri: str = "bolt://localhost:7687"
     axiom_neo4j_user: str = "neo4j"
-    axiom_neo4j_password: str = "collosus"
+    axiom_neo4j_password: str = "rigpa-dev"
     # Default matches docker-compose `axiom-redis:6379`; local dev override: redis://localhost:6379
     axiom_redis_url: str = "redis://localhost:6379"
 
