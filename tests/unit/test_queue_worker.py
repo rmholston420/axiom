@@ -145,6 +145,28 @@ def _awaitable(value):
     return _inner()
 
 
+
+class DummySchemaResult:
+    async def consume(self):
+        return None
+
+
+class DummySchemaSession:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def run(self, *args, **kwargs):
+        return DummySchemaResult()
+
+
+class DummySchemaDriver:
+    def session(self):
+        return DummySchemaSession()
+
+
 @pytest.mark.unit
 def test_channel_formats_job_stream_channel():
     assert qw._channel("job-123") == "axiom:stream:job-123"
@@ -202,7 +224,7 @@ async def test_jobstore_update_missing_job_is_noop():
 @pytest.mark.asyncio
 async def test_enqueue_creates_job_and_pushes_queue(monkeypatch):
     client = DummyClient()
-    worker = qw.QueueWorker(driver=object(), valkey=DummyValkey(client))
+    worker = qw.QueueWorker(driver=DummySchemaDriver(), valkey=DummyValkey(client))
 
     async def fake_create(question):
         assert question == "What is Axiom?"
@@ -220,7 +242,7 @@ async def test_enqueue_creates_job_and_pushes_queue(monkeypatch):
 @pytest.mark.asyncio
 async def test_append_and_publish_emits_json_event(monkeypatch):
     client = DummyClient()
-    worker = qw.QueueWorker(driver=object(), valkey=DummyValkey(client))
+    worker = qw.QueueWorker(driver=DummySchemaDriver(), valkey=DummyValkey(client))
     monkeypatch.setattr(qw, "_now", lambda: "2026-07-15T12:00:00+00:00")
 
     await worker._append_and_publish("job-9", "status", {"status": "running"})
@@ -261,7 +283,6 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
         return {"id": job_id, "question": "What is Axiom?"}
 
     monkeypatch.setattr(qw, "ResearchLoop", SuccessLoop)
-    monkeypatch.setattr(qw, "ensure_schema", lambda driver: _awaitable(None))
     worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
     worker._store.get = fake_get
@@ -324,7 +345,6 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
         return {"id": job_id, "question": "What is Axiom?"}
 
     monkeypatch.setattr(qw, "ResearchLoop", FailureLoop)
-    monkeypatch.setattr(qw, "ensure_schema", lambda driver: _awaitable(None))
     worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
     worker._store.get = fake_get
