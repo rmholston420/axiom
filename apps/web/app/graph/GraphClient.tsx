@@ -503,12 +503,8 @@ export default function GraphClient({
               if (isFocused) return 4.2;
               return denseNeighborhood ? 2.8 : 1.8;
             }}
-            linkColor={(link: ForceLinkObject) => {
-              const relationship = getLinkRelationship(link);
-              if (relationship === "MENTIONS" || relationship === "SUPPORTS") return "rgba(255,255,255,0.96)";
-              if (relationship === "CONTRADICTS") return "rgba(255,255,255,0.92)";
-              return "rgba(255,255,255,0.72)";
-            }}
+            linkColor={() => "#ffffff"}
+            linkOpacity={0.82}
           />
         )}
       </div>
