@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   XCircle,
   Zap,
+  ExternalLink,
 } from "lucide-react";
 
 type ReferenceItem = {
@@ -257,6 +258,9 @@ export default function DashboardPage() {
 
   const liveReferenceCount = stream.sources.length || references.length;
   const displayAxiomCreated = Boolean(activeJob?.axiom_id);
+  const topicHref = activeJob?.query_id
+    ? `/wiki/query/${encodeURIComponent(activeJob.query_id)}`
+    : null;
 
   return (
     <Shell>
@@ -703,7 +707,27 @@ export default function DashboardPage() {
                         color: "var(--color-text)",
                       }}
                     >
-                      <MarkdownRenderer content={report} />
+          
+              {activeJob?.status === "done" && topicHref ? (
+                <Link
+                  href={topicHref}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.45rem",
+                    padding: "0.6rem 0.9rem",
+                    borderRadius: "0.75rem",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-text)",
+                    textDecoration: "none",
+                    background: "var(--color-surface)",
+                  }}
+                >
+                  <ExternalLink size={14} />
+                  <span>View topic</span>
+                </Link>
+              ) : null}
+            <MarkdownRenderer content={report} />
                     </div>
                   </div>
                 )}
