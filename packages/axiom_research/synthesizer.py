@@ -19,31 +19,28 @@ _SYNTH_SYSTEM = (
 
 
 def sanitize_redis_report(report: str) -> str:
-    """Post-process Redis-related sections to remove known false claims.
+    """Post-process Redis-related sections to remove known false claims."""
+    replacements = {
+        "https://redis.io/atomicity/": "https://redis.io/docs/latest/develop/data-types/streams/",
+        "https://redis.io/topics/consumer-groups": "https://redis.io/docs/latest/develop/data-types/streams/",
+        "REPLAY command": "XRANGE or XREAD with stream IDs",
+        "event replay feature": "stream replay via XRANGE or XREAD",
+        'there is no built-in mechanism to resume consumption from a specific point in time':
+            'Redis Streams resume consumption by continuing from a last-seen stream ID, and consumer groups track delivery state for group consumers',
+        'there is no explicit "resume" feature':
+            'resume is implemented through stream IDs and consumer group state',
+        'the lack of a built-in "resume" feature means that resuming from a specific point in time is not directly supported':
+            'resuming from a specific point is supported by reading from a chosen stream ID',
+    }
 
-    This is intentionally conservative: it only strips/edits lines that
-    contradict Redis docs (e.g., non-existent commands) and leaves all
-    other content unchanged.
-    """
-    lines = report.splitlines()
+    text = report
+    for old_text, new_text in replacements.items():
+        text = text.replace(old_text, new_text)
+
     cleaned: list[str] = []
-    for line in lines:
-        # Drop explicit claims about a non-existent REPLAY command.
-        # Redis Streams use XRANGE / XREAD with entry IDs for replay,
-        # not a dedicated REPLAY command. See https://redis.io/docs/latest/commands/xadd/
+    for line in text.splitlines():
         if "REPLAY command" in line:
             continue
-
-        # Soften or correct vague "replay feature" phrasing by pointing
-        # to the real primitives.
-        if "event replay feature" in line:
-            cleaned.append(
-                "Redis Streams support replay via XRANGE / XREAD "
-                "using entry IDs, combined with consumer offsets and "
-                "optional MAXLEN ~ / MINID ~ retention on XADD."
-            )
-            continue
-
         cleaned.append(line)
 
     return "\n".join(cleaned)
