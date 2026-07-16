@@ -12,7 +12,10 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 export default async function GraphPage() {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:7200";
+  const apiBase =
+    process.env.API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    "http://127.0.0.1:7200";
 
   let initialGraph: GraphData = { nodes: [], links: [] };
   let initialAxioms: AxiomRecord[] = [];

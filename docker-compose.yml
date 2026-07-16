@@ -216,6 +216,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://axiom-api:7200
       API_ORIGIN: http://axiom-api:7200
+      API_BASE_URL: http://axiom-api:7200
     depends_on:
       axiom-api:
         condition: service_healthy
