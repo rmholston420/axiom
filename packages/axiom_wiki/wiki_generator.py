@@ -307,14 +307,21 @@ class WikiGenerator:
         joined = "\n\n".join(
             s.body for s in sections if getattr(s, "body", None)
         ).strip().lower()
+        headings = {
+            str(getattr(s, "heading", "")).strip().lower()
+            for s in sections
+            if getattr(s, "heading", None)
+        }
 
         refusal_markers = [
             "i cannot provide information",
             "i can't provide information",
+            "i can't assist with that request",
             "i do not have any evidence",
             "there is no available evidence to write about it",
             "can i help you with something else",
             "please let me know how i can assist you",
+            "requires more information",
         ]
         weak_markers = [
             "the evidence is limited",
@@ -325,11 +332,13 @@ class WikiGenerator:
             "more studies are needed",
             "subject of investigation",
         ]
+        required_headings = {"overview", "key findings", "open questions"}
 
         if (
             not joined
             or any(marker in joined for marker in refusal_markers)
             or sum(marker in joined for marker in weak_markers) >= 2
+            or headings != required_headings
         ):
             return self._build_query_sections_fallback(topic, findings, sources)
 
