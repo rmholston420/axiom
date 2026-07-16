@@ -89,6 +89,9 @@ class DummyValkeyClient:
             {"type": "message", "data": message, "channel": channel}
         )
 
+    async def xrange(self, key: str, min: str = "-", max: str = "+", count: int | None = None):
+        return []
+
     def pubsub(self) -> "DummyPubSub":
         return self.pubsub_instance
 
@@ -135,7 +138,7 @@ class DummyWorker(QueueWorker):
         self._store = store
 
     async def enqueue(self, question: str, breadth: int | None = None, depth: int | None = None) -> str:
-        job_id = await self._store.create(question)
+        job_id = await self._store.create(question, breadth=breadth, depth=depth)
         return job_id
 
     async def run_forever(self) -> None:  # pragma: no cover

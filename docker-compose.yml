@@ -1,5 +1,34 @@
 services:
 
+  axiom-worker:
+    depends_on:
+      axiom-ollama-init:
+        condition: service_completed_successfully
+      axiom-redis:
+        condition: service_healthy
+      axiom-neo4j:
+        condition: service_healthy
+      axiom-ollama:
+        condition: service_started
+      axiom-searxng:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: axiom-worker
+    command: python -m axiom_research.queue_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      AXIOM_SEARXNG_URL: http://axiom-searxng:8080
+      AXIOM_NEO4J_URI: bolt://axiom-neo4j:7687
+      AXIOM_OLLAMA_BASE_URL: http://axiom-ollama:11434
+      AXIOM_REDIS_URL: redis://axiom-redis:6379
+      PYTHONUNBUFFERED: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   axiom-redis:
     image: redis:7-alpine
     container_name: axiom-redis
