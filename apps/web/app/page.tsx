@@ -443,8 +443,8 @@ export default function DashboardPage() {
           </button>
         </form>
 
-        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: "1.5rem" }}>
-          <div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem", alignItems: "start" }}>
+          <div style={{ minWidth: 0 }}>
             <h2
               style={{
                 fontSize: "0.8rem",
