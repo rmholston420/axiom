@@ -65,6 +65,17 @@ function getNodeType(node: GraphNodeDatum | null | undefined): string {
   return String(node?.type ?? "Unknown");
 }
 
+
+function toNodeId(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (value && typeof value === "object" && "id" in value) {
+    const nodeId = (value as { id?: string | number }).id;
+    return String(nodeId ?? "");
+  }
+  return "";
+}
+
+
 export default function GraphClient({
   initialGraph,
   initialAxioms,
@@ -80,7 +91,7 @@ export default function GraphClient({
   const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const fg2dRef = useRef<ForceGraphMethods<GraphNodeDatum, GraphLinkDatum> | undefined>(undefined);
-  const fg3dRef = useRef<ForceGraphMethods | undefined>(undefined);
+  const fg3dRef = useRef<ForceGraphMethods<any, any> | undefined>(undefined);
 
   const load = async () => {
     setLoading(true);
@@ -170,8 +181,8 @@ export default function GraphClient({
     const fg = fg3dRef.current;
     try {
       fg.d3Force("link")?.distance?.((link: { source?: string | number | { id?: string | number }; target?: string | number | { id?: string | number } }) => {
-        const sourceId = typeof link.source === "string" ? link.source : link.source.id;
-        const targetId = typeof link.target === "string" ? link.target : link.target.id;
+        const sourceId = toNodeId(link.source);
+        const targetId = toNodeId(link.target);
         return sourceId === targetId ? 120 : 145;
       });
       fg.d3ReheatSimulation();
@@ -385,7 +396,7 @@ export default function GraphClient({
           />
         ) : (
           <ForceGraph3D
-           ref={fg3dRef}
+           ref={(node) => { fg3dRef.current = node ?? undefined; }}
            graphData={graphData}
            nodeVal={(node: GraphNodeDatum) => {
              const id = String(node.id);
