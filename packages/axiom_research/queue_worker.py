@@ -96,32 +96,36 @@ class QueueWorker:
         await self._store.update(job_id, status=JobStatus.RUNNING.value)
         await self._publish(job_id, "status", {"status": "running"})
         try:
-            loop = ResearchLoop(self._driver)
-            original_run = loop.run
-
-            async def instrumented_run(question: str, **kwargs: Any):
-                await self._publish(job_id, "progress", {"msg": "Planning sub-queries"})
-                result = await original_run(question, job_id=job_id, **kwargs)
-                for i, f in enumerate(result.findings, 1):
-                    await self._publish(
-                        job_id,
-                        "finding",
-                        {"index": i, "sub_query": f.sub_query, "summary": f.summary[:200]},
-                    )
-                return result
-
             job = await self._store.get(job_id)
             question = job["question"]  # type: ignore[index]
-            result = await instrumented_run(
+
+            await self._publish(job_id, "event", {"message": "Queued job picked up by worker"})
+            await self._publish(job_id, "event", {"message": "Planning research sub-queries"})
+
+            loop = ResearchLoop(self._driver)
+
+            await self._publish(job_id, "event", {"message": "Running retrieval and extraction"})
+            result = await loop.run(
                 question,
+                job_id=job_id,
                 breadth=settings.axiom_breadth,
             )
+
+            await self._publish(job_id, "event", {"message": f"Collected {len(result.findings)} findings"})
+            for i, f in enumerate(result.findings, 1):
+                await self._publish(
+                    job_id,
+                    "finding",
+                    {"index": i, "sub_query": f.sub_query, "summary": f.summary[:200]},
+                )
+
+            await self._publish(job_id, "event", {"message": "Synthesized final report"})
             await self._store.update(job_id, status=JobStatus.DONE.value, report=result.report)
             await self._publish(job_id, "done", {"status": "done", "report": result.report})
         except Exception as exc:  # noqa: BLE001
             log.exception("Job %s failed", job_id)
             await self._store.update(job_id, status=JobStatus.FAILED.value, error=str(exc))
-            await self._publish(job_id, "error", {"error": str(exc)})
+            await self._publish(job_id, "error", {"message": str(exc), "error": str(exc)})
 
     async def run_forever(self) -> None:
         """Block-wait on QUEUE_KEY and process jobs one at a time."""
