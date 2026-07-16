@@ -25,9 +25,17 @@ log = logging.getLogger(__name__)
 JOBS_KEY = "axiom:jobs"
 QUEUE_KEY = "axiom:queue"
 
+# Redis Streams key prefix for durable per-job event logs.
+# Each job writes to  axiom:events:{job_id}  via XADD and reads back via XREAD.
+EVENT_STREAM_KEY_PREFIX = "axiom:events"
+
 
 def _channel(job_id: str) -> str:
     return f"axiom:stream:{job_id}"
+
+
+def _event_stream_key(job_id: str) -> str:
+    return f"{EVENT_STREAM_KEY_PREFIX}:{job_id}"
 
 
 def _now() -> str:
@@ -88,44 +96,74 @@ class QueueWorker:
         await self._valkey.client.rpush(QUEUE_KEY, job_id)
         return job_id
 
-    async def _publish(self, job_id: str, event: str, data: Any) -> None:
-        msg = json.dumps({"event": event, "data": data, "ts": _now()})
+    async def _append_and_publish(
+        self, job_id: str, event: str, data: Any
+    ) -> None:
+        """Append the event to the per-job Redis Stream AND publish to Pub/Sub.
+
+        Writing to the Stream provides durable replay for late subscribers.
+        Publishing to Pub/Sub provides low-latency fan-out for live subscribers.
+        """
+        payload = {"event": event, "data": data, "ts": _now()}
+        msg = json.dumps(payload)
+        stream_key = _event_stream_key(job_id)
+
+        # XADD: append to Redis Stream (auto-generated entry ID)
+        await self._valkey.client.xadd(stream_key, {"payload": msg})
+
+        # Pub/Sub fan-out for live SSE subscribers
         await self._valkey.client.publish(_channel(job_id), msg)
 
     async def _process(self, job_id: str) -> None:
         await self._store.update(job_id, status=JobStatus.RUNNING.value)
-        await self._publish(job_id, "status", {"status": "running"})
+        await self._append_and_publish(job_id, "status", {"status": "running"})
         try:
             job = await self._store.get(job_id)
             question = job["question"]  # type: ignore[index]
 
-            await self._publish(job_id, "event", {"message": "Queued job picked up by worker"})
-            await self._publish(job_id, "event", {"message": "Planning research sub-queries"})
+            await self._append_and_publish(
+                job_id, "event", {"message": "Queued job picked up by worker"}
+            )
+            await self._append_and_publish(
+                job_id, "event", {"message": "Planning research sub-queries"}
+            )
 
             loop = ResearchLoop(self._driver)
 
-            await self._publish(job_id, "event", {"message": "Running retrieval and extraction"})
+            await self._append_and_publish(
+                job_id, "event", {"message": "Running retrieval and extraction"}
+            )
             result = await loop.run(
                 question,
                 job_id=job_id,
                 breadth=settings.axiom_breadth,
             )
 
-            await self._publish(job_id, "event", {"message": f"Collected {len(result.findings)} findings"})
+            await self._append_and_publish(
+                job_id,
+                "event",
+                {"message": f"Collected {len(result.findings)} findings"},
+            )
             for i, f in enumerate(result.findings, 1):
-                await self._publish(
+                await self._append_and_publish(
                     job_id,
                     "finding",
                     {"index": i, "sub_query": f.sub_query, "summary": f.summary[:200]},
                 )
 
-            await self._publish(job_id, "event", {"message": "Synthesized final report"})
+            await self._append_and_publish(
+                job_id, "event", {"message": "Synthesized final report"}
+            )
             await self._store.update(job_id, status=JobStatus.DONE.value, report=result.report)
-            await self._publish(job_id, "done", {"status": "done", "report": result.report})
+            await self._append_and_publish(
+                job_id, "done", {"status": "done", "report": result.report}
+            )
         except Exception as exc:  # noqa: BLE001
             log.exception("Job %s failed", job_id)
             await self._store.update(job_id, status=JobStatus.FAILED.value, error=str(exc))
-            await self._publish(job_id, "error", {"message": str(exc), "error": str(exc)})
+            await self._append_and_publish(
+                job_id, "error", {"message": str(exc), "error": str(exc)}
+            )
 
     async def run_forever(self) -> None:
         """Block-wait on QUEUE_KEY and process jobs one at a time."""
@@ -155,39 +193,68 @@ class QueueWorker:
 async def sse_stream(valkey: ValkeyProvider, job_id: str) -> AsyncIterator[str]:
     """Yield Server-Sent Events for a specific job.
 
-    This is an async generator.  The StreamingResponse in `stream.py` wraps it
-    with `_sse_generator` so that FastAPI receives a plain async iterator — the
-    generator is consumed correctly regardless of starlette version.
+    Strategy:
+      1. Replay the full Redis Stream (all events emitted so far).
+      2. If the terminal event (done/error) is in the replay, return immediately —
+         no Pub/Sub subscribe needed.
+      3. Otherwise subscribe to the Pub/Sub channel and forward live events.
+
+    This eliminates the race condition where the browser connects slightly after
+    events are published and Pub/Sub messages are already gone.
     """
-    pubsub = valkey.client.pubsub()
-    await pubsub.subscribe(_channel(job_id))
-    try:
-        # Yield any already-stored status first
+    client = valkey.client
+    stream_key = _event_stream_key(job_id)
+
+    # ------------------------------------------------------------------ #
+    # 1. Replay the durable Redis Stream from the beginning               #
+    # ------------------------------------------------------------------ #
+    # XRANGE returns [(entry_id, {field: value}), ...] in insertion order.
+    history: list[tuple[str, dict[str, str]]] = await client.xrange(
+        stream_key, "-", "+"
+    )
+
+    for _entry_id, fields in history:
+        raw = fields.get("payload", "")
+        if not raw:
+            continue
+        yield f"data: {raw}\n\n"
+        try:
+            parsed = json.loads(raw)
+            if parsed.get("event") in ("done", "error"):
+                # Job is already finished — no need to tail Pub/Sub.
+                return
+        except json.JSONDecodeError:
+            pass
+
+    # ------------------------------------------------------------------ #
+    # 2. If stream is empty, seed an initial status from JobStore         #
+    # ------------------------------------------------------------------ #
+    if not history:
         job = await JobStore(valkey).get(job_id)
         if job:
             status = job["status"]
-            yield f"data: {json.dumps({'event': 'status', 'data': {'status': status}})}\n\n"
-            if status == JobStatus.DONE.value:
-                payload = {
-                    "event": "done",
-                    "data": {"status": "done", "report": job.get("report", "")},
-                }
-                yield f"data: {json.dumps(payload)}\n\n"
+            payload = {"event": "status", "data": {"status": status}}
+            yield f"data: {json.dumps(payload)}\n\n"
+            if status in (JobStatus.DONE.value, JobStatus.FAILED.value):
                 return
-            if status == JobStatus.FAILED.value:
-                payload = {
-                    "event": "error",
-                    "data": {"error": job.get("error", "unknown error")},
-                }
-                yield f"data: {json.dumps(payload)}\n\n"
-                return
+
+    # ------------------------------------------------------------------ #
+    # 3. Tail live Pub/Sub messages for events not yet in the Stream      #
+    # ------------------------------------------------------------------ #
+    pubsub = client.pubsub()
+    await pubsub.subscribe(_channel(job_id))
+    try:
         async for message in pubsub.listen():
             if message["type"] != "message":
                 continue
-            yield f"data: {message['data']}\n\n"
-            parsed = json.loads(message["data"])
-            if parsed.get("event") in ("done", "error"):
-                break
+            data_str = message["data"]
+            yield f"data: {data_str}\n\n"
+            try:
+                parsed = json.loads(data_str)
+                if parsed.get("event") in ("done", "error"):
+                    break
+            except json.JSONDecodeError:
+                pass
     finally:
         await pubsub.unsubscribe(_channel(job_id))
         await pubsub.aclose()

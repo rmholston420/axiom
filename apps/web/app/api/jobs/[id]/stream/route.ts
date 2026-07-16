@@ -42,7 +42,8 @@ export async function GET(
 
     const headers = new Headers();
     headers.set("content-type", upstream.headers.get("content-type") || "text/event-stream; charset=utf-8");
-    headers.set("cache-control", "no-cache, no-store, must-revalidate");
+    headers.set("cache-control", "no-cache, no-transform");
+    headers.set("connection", "keep-alive");
     headers.set("x-accel-buffering", "no");
 
     return new Response(upstream.body, {
