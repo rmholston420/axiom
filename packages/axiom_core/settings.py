@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     axiom_model_planner: str = "qwen3:14b"
     axiom_model_synthesizer: str = "qwen3:14b"
     axiom_model_code: str = "qwen2.5-coder:14b"
-    axiom_model_critic: str = "qwen3.5:9b"
+    axiom_model_critic: str = "llama3.2:3b"
     axiom_model_chairman: str = "qwen3:14b"
     axiom_model_axiomatizer: str = "qwen3:14b"
 
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     axiom_max_results_per_query: int = 5
     axiom_council_size: int = 3
     axiom_council_enabled: bool = True
-    axiom_axiomatizer_enabled: bool = False
+    axiom_axiomatizer_enabled: bool = True
     axiom_graph_node_limit: int = 2000
     axiom_graph_edge_limit: int = 4000
 
