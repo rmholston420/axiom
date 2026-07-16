@@ -313,6 +313,17 @@ class WikiGenerator:
             if getattr(s, "heading", None)
         }
 
+        findings_joined = "\n".join(
+            str(f.get("summary", "")).strip().lower()
+            for f in findings
+            if isinstance(f, dict) and str(f.get("summary", "")).strip()
+        )
+        nonempty_findings = [
+            str(f.get("summary", "")).strip()
+            for f in findings
+            if isinstance(f, dict) and str(f.get("summary", "")).strip()
+        ]
+
         refusal_markers = [
             "i cannot provide information",
             "i can't provide information",
@@ -332,13 +343,28 @@ class WikiGenerator:
             "more studies are needed",
             "subject of investigation",
         ]
+        broad_claim_markers = [
+            "buddhist philosophy",
+            "eastern spiritual traditions",
+            "enlightenment",
+            "natural state of the mind",
+            "consciousness characterized by clarity",
+        ]
         required_headings = {"overview", "key findings", "open questions"}
+
+        sparse_findings = len(nonempty_findings) < 2
+        unsupported_broad_claim = any(
+            marker in joined and marker not in findings_joined
+            for marker in broad_claim_markers
+        )
 
         if (
             not joined
             or any(marker in joined for marker in refusal_markers)
             or sum(marker in joined for marker in weak_markers) >= 2
             or headings != required_headings
+            or sparse_findings
+            or unsupported_broad_claim
         ):
             return self._build_query_sections_fallback(topic, findings, sources)
 
