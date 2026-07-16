@@ -32,6 +32,9 @@ class AxiomResponse(BaseModel):
     statement: str
     justification: str
     confidence: float
+    approved: bool
+    eval_reason: str = ""
+    evaluation_warning: bool = False
     created_at: str
     persisted: bool
 
@@ -103,10 +106,15 @@ async def _evaluate_axiom(ollama: OllamaProvider, statement: str, justification:
         return {
             "approved": bool(data.get("approved", True)),
             "reason": str(data.get("reason", "")).strip(),
+            "evaluation_warning": False,
         }
     except Exception as exc:
         log.warning("Axiomatizer evaluate parse error: %s | raw=%r", exc, raw[:500])
-        return {"approved": True, "reason": "evaluation parse failed — defaulting to approved"}
+        return {
+            "approved": True,
+            "reason": "Model evaluation failed, treating as approved",
+            "evaluation_warning": True,
+        }
 
 
 async def _get_driver(request: Optional[Request]) -> tuple[AsyncDriver, bool]:
@@ -146,6 +154,7 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
     evaluation = await _evaluate_axiom(ollama, statement, justification)
     approved = evaluation["approved"]
     eval_reason = evaluation["reason"]
+    evaluation_warning = bool(evaluation.get("evaluation_warning", False))
 
     label = body.label or statement[:60]
     driver, should_close = await _get_driver(request)
@@ -158,6 +167,7 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
         a.confidence = $confidence,
         a.approved = $approved,
         a.eval_reason = $eval_reason,
+        a.evaluation_warning = $evaluation_warning,
         a.created_at = $created_at
     ON MATCH SET
         a.label = $label,
@@ -165,7 +175,8 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
         a.justification = $justification,
         a.confidence = $confidence,
         a.approved = $approved,
-        a.eval_reason = $eval_reason
+        a.eval_reason = $eval_reason,
+        a.evaluation_warning = $evaluation_warning
     RETURN a.id AS id
     """
     try:
@@ -179,6 +190,7 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
                 confidence=float(confidence),
                 approved=approved,
                 eval_reason=eval_reason,
+                evaluation_warning=evaluation_warning,
                 created_at=created_at,
             )
     finally:
@@ -191,6 +203,9 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
         statement=statement,
         justification=justification,
         confidence=confidence,
+        approved=approved,
+        eval_reason=eval_reason,
+        evaluation_warning=evaluation_warning,
         created_at=created_at,
         persisted=True,
     )

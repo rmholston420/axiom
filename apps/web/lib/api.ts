@@ -57,6 +57,7 @@ export interface AxiomRecord {
   confidence: number;
   approved?: boolean;
   eval_reason?: string;
+  evaluation_warning?: boolean;
   created_at: string;
   persisted?: boolean;
 }

@@ -71,6 +71,29 @@ function ApprovalBadge({ approved }: { approved?: boolean }) {
   );
 }
 
+
+function EvaluationWarningBadge({ show }: { show?: boolean }) {
+  if (!show) return null;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.25rem",
+        fontSize: "0.7rem",
+        fontWeight: 600,
+        padding: "0.15rem 0.5rem",
+        borderRadius: "var(--radius-full)",
+        color: "var(--color-warning)",
+        background: "color-mix(in oklab, var(--color-warning) 12%, transparent)",
+        border: "1px solid color-mix(in oklab, var(--color-warning) 30%, transparent)",
+      }}
+    >
+      <AlertCircle size={10} /> Evaluation warning
+    </span>
+  );
+}
+
 export default function AxiomsPage() {
   const [axioms, setAxioms] = useState<AxiomRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -324,9 +347,10 @@ export default function AxiomsPage() {
                     >
                       {axiom.label || `Axiom #${idx + 1}`}
                     </span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                       <ConfidenceBadge value={axiom.confidence ?? 0} />
                       <ApprovalBadge approved={axiom.approved} />
+                      <EvaluationWarningBadge show={axiom.evaluation_warning} />
                     </div>
                   </div>
 
@@ -358,12 +382,14 @@ export default function AxiomsPage() {
                     <p
                       style={{
                         fontSize: "0.775rem",
-                        color: "var(--color-text-faint)",
+                        color: axiom.evaluation_warning ? "var(--color-warning)" : "var(--color-text-faint)",
                         fontStyle: "italic",
                         margin: 0,
                       }}
                     >
-                      Eval: {axiom.eval_reason}
+                      {axiom.evaluation_warning
+                        ? "Warning: Model evaluation failed, treating as approved"
+                        : `Eval: ${axiom.eval_reason}`}
                     </p>
                   )}
 
