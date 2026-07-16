@@ -333,7 +333,20 @@ export default function GraphClient({
             const offset = ((hash % 5) - 2) * 0.05;
             return Math.max(0.08, base + offset);
           }}
-            linkCurveRotation={0.35}
+            linkCurveRotation={(link: ForceLinkObject) => {
+            const sourceId = getLinkEndpointId(link.source);
+            const targetId = getLinkEndpointId(link.target);
+            const pair = [sourceId, targetId].sort().join("|");
+
+            let hash = 0;
+            for (let i = 0; i < pair.length; i += 1) {
+              hash = (hash * 31 + pair.charCodeAt(i)) >>> 0;
+            }
+
+            const t = (hash % 360) / 360;
+            const angle = -0.5 + t;  # roughly [-0.5, 0.5]
+            return angle;
+          }}
             nodeLabel={(node: GraphNodeDatum) => `${getNodeLabel(node)} (${getNodeType(node)})`}
             linkLabel={(link: ForceLinkObject) => getLinkRelationship(link)}
             nodeAutoColorBy="type"
