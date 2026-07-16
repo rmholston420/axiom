@@ -361,10 +361,10 @@ export default function GraphClient({
              if (isFocused) return 7.2;
              return inDenseNeighborhood ? 5.8 : 4.6;
            }}
-           nodeThreeObjectExtend={(node: GraphNodeDatum, obj: THREE.Object3D) => {
+           nodeThreeObject={(node: GraphNodeDatum) => {
              const id = String(node.id);
              const isFocused = hoverNodeId === id || selectedNodeId === id;
-             if (!isFocused) return;
+             if (!isFocused) return undefined;
 
              const haloGeometry = new THREE.SphereGeometry(1.35, 16, 16);
              const haloMaterial = new THREE.MeshBasicMaterial({
@@ -376,8 +376,9 @@ export default function GraphClient({
              });
              const halo = new THREE.Mesh(haloGeometry, haloMaterial);
              halo.scale.setScalar(6);
-             obj.add(halo);
-           }}
+             return halo;
+           }
+           nodeThreeObjectExtend={true}
             linkCurvature={(link: ForceLinkObject) => {
             const sourceId = getLinkEndpointId(link.source);
             const targetId = getLinkEndpointId(link.target);
