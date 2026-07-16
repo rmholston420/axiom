@@ -236,7 +236,7 @@ export default function DashboardPage() {
         return;
       }
 
-      const message = parseResearchStreamMessage(parsed);
+      const message = parseResearchStreamMessage(raw);
       if (!message) {
         setHasSeenEvent(true);
         setEvents((prev) => [...prev, raw]);
