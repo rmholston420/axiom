@@ -27,6 +27,7 @@ class JobResponse(BaseModel):
     started_at: str = ""
     completed_at: str = ""
     elapsed_seconds: float | None = None
+    query_id: str = ""
     axiom_id: str = ""
     report: str
     error: str
