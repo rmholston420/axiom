@@ -321,11 +321,19 @@ export default function GraphClient({
             }
             return `rgba(148,163,184,${softAlpha})`;
           }}
-            linkWidth={(link: ForceLinkObject) => {
-              const sourceId = getLinkEndpointId(link.source);
-              const targetId = getLinkEndpointId(link.target);
-              return neighborIds.has(sourceId) && neighborIds.has(targetId) ? 2.2 : 1;
-            }}
+          linkWidth={(link: ForceLinkObject) => {
+            const sourceId = getLinkEndpointId(link.source);
+            const targetId = getLinkEndpointId(link.target);
+            const denseNeighborhood = neighborIds.has(sourceId) && neighborIds.has(targetId);
+
+            const isFocused =
+              (hoverNodeId != null && (sourceId === hoverNodeId || targetId === hoverNodeId)) ||
+              (selectedNodeId != null && (sourceId === selectedNodeId || targetId === selectedNodeId));
+
+            if (isFocused && denseNeighborhood) return 3.2;
+            if (isFocused) return 2.4;
+            return denseNeighborhood ? 1.8 : 1;
+          }}
           />
         ) : (
           <ForceGraph3D
