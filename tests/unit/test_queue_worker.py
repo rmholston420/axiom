@@ -138,6 +138,13 @@ class FailureLoop:
         raise RuntimeError("loop failed")
 
 
+def _awaitable(value):
+    async def _inner():
+        return value
+
+    return _inner()
+
+
 @pytest.mark.unit
 def test_channel_formats_job_stream_channel():
     assert qw._channel("job-123") == "axiom:stream:job-123"
@@ -254,6 +261,7 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
         return {"id": job_id, "question": "What is Axiom?"}
 
     monkeypatch.setattr(qw, "ResearchLoop", SuccessLoop)
+    monkeypatch.setattr(qw, "ensure_schema", lambda driver: _awaitable(None))
     worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
     worker._store.get = fake_get
@@ -316,6 +324,7 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
         return {"id": job_id, "question": "What is Axiom?"}
 
     monkeypatch.setattr(qw, "ResearchLoop", FailureLoop)
+    monkeypatch.setattr(qw, "ensure_schema", lambda driver: _awaitable(None))
     worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
     worker._store.get = fake_get

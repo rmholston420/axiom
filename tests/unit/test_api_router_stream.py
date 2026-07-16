@@ -74,7 +74,7 @@ def test_stream_job_returns_sse_response(monkeypatch):
 
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
-    assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["cache-control"] == "no-cache, no-transform"
     assert response.headers["x-accel-buffering"] == "no"
     assert body == b"data: hello\n\ndata: world\n\n"
     assert store.calls == ["job-123"]
