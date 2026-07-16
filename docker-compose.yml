@@ -27,7 +27,7 @@ services:
       AXIOM_REDIS_URL: redis://axiom-redis:6379
       PYTHONUNBUFFERED: "1"
     healthcheck:
-      test: ["CMD", "python", "-c", "import socket; print('ok')"]
+      test: ["CMD", "redis-cli", "-u", "redis://axiom-redis:6379", "ping"]
       interval: 30s
       timeout: 5s
       start_period: 10s
