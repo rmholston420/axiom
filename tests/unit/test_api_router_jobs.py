@@ -12,7 +12,7 @@ class DummyWorker:
         self.job_id = job_id
         self.enqueue_calls = []
 
-    async def enqueue(self, question):
+    async def enqueue(self, question, breadth=None, depth=None):
         self.enqueue_calls.append(question)
         return self.job_id
 

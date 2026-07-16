@@ -336,8 +336,10 @@ async def test_enqueue_creates_job_and_pushes_queue(monkeypatch):
     client = DummyClient()
     worker = qw.QueueWorker(driver=DummySchemaDriver(), valkey=DummyValkey(client))
 
-    async def fake_create(question):
+    async def fake_create(question, breadth=None, depth=None):
         assert question == "What is Axiom?"
+        assert breadth is None
+        assert depth is None
         return "job-1"
 
     worker._store.create = fake_create

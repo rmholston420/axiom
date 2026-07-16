@@ -257,6 +257,8 @@ class QueueWorker:
         job_started_at: datetime = _now_dt()
         started_at_iso: str = job_started_at.isoformat()
 
+        log.info("job=%s phase=process.start started_at=%s", job_id, started_at_iso)
+
         # Persist started_at immediately so the REST endpoint reflects it.
         await self._store.update(job_id, started_at=started_at_iso)
 
@@ -281,6 +283,14 @@ class QueueWorker:
             question = job["question"]  # type: ignore[index]
             breadth = int(job.get("breadth") or settings.axiom_breadth)
             depth = int(job.get("depth") or 1)
+
+            log.info(
+                "job=%s phase=job.loaded breadth=%s depth=%s question=%r",
+                job_id,
+                breadth,
+                depth,
+                question,
+            )
 
             # ------------------------------------------------------------------
             # Build a streaming-aware ResearchLoop by running the plan + retrieval
@@ -310,11 +320,28 @@ class QueueWorker:
             query_id = await repo.create_query(question, job_id=job_id)
 
             # Plan sub-queries
+            plan_started_at = _now_dt()
+            log.info("job=%s phase=planner.start breadth=%s", job_id, breadth)
             sub_queries = await planner.plan(question, breadth=breadth)
+            log.info(
+                "job=%s phase=planner.done sub_queries=%s elapsed_seconds=%.2f",
+                job_id,
+                len(sub_queries),
+                _elapsed(plan_started_at),
+            )
 
             findings: list[RawFinding] = []
 
-            for sq in sub_queries:
+            for index, sq in enumerate(sub_queries, start=1):
+                subquery_started_at = _now_dt()
+                log.info(
+                    "job=%s phase=subquery.start index=%s/%s query=%r",
+                    job_id,
+                    index,
+                    len(sub_queries),
+                    sq.text,
+                )
+
                 # --- response.searching ---
                 await self._append_and_publish(
                     job_id,
@@ -322,7 +349,16 @@ class QueueWorker:
                     {"query": sq.text},
                 )
 
+                retrieval_started_at = _now_dt()
+                log.info("job=%s phase=retrieval.start index=%s query=%r", job_id, index, sq.text)
                 results = await retriever.retrieve(sq.text)
+                log.info(
+                    "job=%s phase=retrieval.done index=%s results=%s elapsed_seconds=%.2f",
+                    job_id,
+                    index,
+                    len(results),
+                    _elapsed(retrieval_started_at),
+                )
 
                 # Upsert sources into graph
                 source_urls: list[str] = []
@@ -339,13 +375,43 @@ class QueueWorker:
                     {"query": sq.text, "sources": sources_payload},
                 )
 
+                extraction_started_at = _now_dt()
+                log.info(
+                    "job=%s phase=extractor.start index=%s query=%r result_count=%s",
+                    job_id,
+                    index,
+                    sq.text,
+                    len(results),
+                )
                 summary = await extractor.extract(sq.text, results)
+                log.info(
+                    "job=%s phase=extractor.done index=%s summary_chars=%s elapsed_seconds=%.2f",
+                    job_id,
+                    index,
+                    len(summary or ""),
+                    _elapsed(extraction_started_at),
+                )
 
+                graph_write_started_at = _now_dt()
                 await repo.create_finding(
                     query_id=query_id,
                     sub_query=sq.text,
                     summary=summary,
                     source_urls=source_urls,
+                )
+                log.info(
+                    "job=%s phase=graph_write.done index=%s sources=%s elapsed_seconds=%.2f",
+                    job_id,
+                    index,
+                    len(source_urls),
+                    _elapsed(graph_write_started_at),
+                )
+                log.info(
+                    "job=%s phase=subquery.done index=%s/%s total_elapsed_seconds=%.2f",
+                    job_id,
+                    index,
+                    len(sub_queries),
+                    _elapsed(subquery_started_at),
                 )
 
                 findings.append(
@@ -360,9 +426,25 @@ class QueueWorker:
             # Streaming synthesis: proxy token deltas directly to SSE.
             # ------------------------------------------------------------------
             accumulated: list[str] = []
+            synthesis_started_at = _now_dt()
+            delta_count = 0
+            log.info(
+                "job=%s phase=synthesis.start findings=%s",
+                job_id,
+                len(findings),
+            )
 
             async for delta in synthesizer.synthesize_stream(question, findings):
                 accumulated.append(delta)
+                delta_count += 1
+                if delta_count == 1 or delta_count % 25 == 0:
+                    log.info(
+                        "job=%s phase=synthesis.progress deltas=%s chars=%s elapsed_seconds=%.2f",
+                        job_id,
+                        delta_count,
+                        sum(len(part) for part in accumulated),
+                        _elapsed(synthesis_started_at),
+                    )
                 # --- response.output_text.delta ---
                 await self._append_and_publish(
                     job_id,
@@ -371,10 +453,24 @@ class QueueWorker:
                 )
 
             full_report = sanitize_redis_report("".join(accumulated))
+            log.info(
+                "job=%s phase=synthesis.done deltas=%s report_chars=%s elapsed_seconds=%.2f",
+                job_id,
+                delta_count,
+                len(full_report),
+                _elapsed(synthesis_started_at),
+            )
 
+            axiomatizer_started_at = _now_dt()
+            log.info("job=%s phase=axiomatizer.start enabled=%s", job_id, settings.axiom_axiomatizer_enabled)
             axiomatizer_result = await _persist_axiom_from_report(
                 question=question,
                 report=full_report,
+            )
+            log.info(
+                "job=%s phase=axiomatizer.done elapsed_seconds=%.2f",
+                job_id,
+                _elapsed(axiomatizer_started_at),
             )
             axiom_id = ""
             if isinstance(axiomatizer_result, dict):
@@ -403,6 +499,14 @@ class QueueWorker:
                 completed_at=completed_at_iso,
                 axiom_id=axiom_id,
             )
+            log.info(
+                "job=%s phase=process.done finding_count=%s report_chars=%s elapsed_seconds=%.2f axiom_id=%r",
+                job_id,
+                len(findings),
+                len(full_report),
+                elapsed,
+                axiom_id,
+            )
 
             # --- response.completed (terminal) ---
             await self._append_and_publish(
@@ -421,7 +525,7 @@ class QueueWorker:
             )
 
         except Exception as exc:  # noqa: BLE001
-            log.exception("Job %s failed", job_id)
+            log.exception("job=%s phase=process.failed error=%s", job_id, exc)
             elapsed_on_error: float = _elapsed(job_started_at)
             completed_at_iso_err: str = _now()
             await self._store.update(

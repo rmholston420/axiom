@@ -134,7 +134,7 @@ class DummyWorker(QueueWorker):
         super().__init__(driver=object(), valkey=valkey)
         self._store = store
 
-    async def enqueue(self, question: str) -> str:
+    async def enqueue(self, question: str, breadth: int | None = None, depth: int | None = None) -> str:
         job_id = await self._store.create(question)
         return job_id
 
