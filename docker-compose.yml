@@ -41,6 +41,8 @@ services:
 
   axiom-ollama-init:
     image: curlimages/curl:8.10.1
+    volumes:
+      - ./:/workspace:ro
     depends_on:
       axiom-ollama:
         condition: service_started
@@ -49,16 +51,10 @@ services:
       - sh
       - -c
       - |
-          set -e
           until curl -fsS http://axiom-ollama:11434/api/tags >/dev/null; do
             sleep 2
           done
-          curl -fsS http://axiom-ollama:11434/api/pull \
-            -H 'Content-Type: application/json' \
-            -d '{"model":"llama3.2:3b","stream":false}'
-          curl -fsS http://axiom-ollama:11434/api/pull \
-            -H 'Content-Type: application/json' \
-            -d '{"model":"qwen2.5-coder:14b","stream":false}'
+          OLLAMA_URL=http://axiom-ollama:11434 sh /workspace/scripts/pull-models.sh
 
   axiom-api:
     depends_on:
