@@ -25,10 +25,11 @@ export async function fetchUpstream(
   pathname: string,
   init?: RequestInit,
   search = "",
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
   const url = buildUpstreamUrl(pathname, search);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const upstream = await fetch(url, {
@@ -64,6 +65,7 @@ export async function fetchUpstream(
         error: status === 504 ? "Upstream API timeout" : "Upstream API unreachable",
         upstream: url,
         detail,
+        timeout_ms: timeoutMs,
       },
       { status },
     );
@@ -76,6 +78,7 @@ export async function forwardJsonBody(
   req: Request,
   pathname: string,
   method: "POST" | "PATCH" | "PUT" | "DELETE",
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
   const search = new URL(req.url).search;
   const body = await req.text();
@@ -90,5 +93,6 @@ export async function forwardJsonBody(
       body,
     },
     search,
+    timeoutMs,
   );
 }
