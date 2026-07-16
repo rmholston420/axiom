@@ -324,11 +324,16 @@ export default function GraphClient({
               hash = (hash * 31 + pair.charCodeAt(i)) >>> 0;
             }
 
-            const base = relationship === "CONTRADICTS"
+            const denseNeighborhood = neighborIds.has(sourceId) && neighborIds.has(targetId);
+
+            const baseRelationship = relationship === "CONTRADICTS"
               ? 0.42
               : relationship === "MENTIONS" || relationship === "SUPPORTS"
                 ? 0.3
                 : 0.2;
+
+            const baseDensity = denseNeighborhood ? 0.16 : 0.0;
+            const base = baseRelationship + baseDensity;
 
             const offset = ((hash % 5) - 2) * 0.05;
             return Math.max(0.08, base + offset);
