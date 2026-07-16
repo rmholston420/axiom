@@ -27,6 +27,11 @@ type LiveFinding = {
   summary: string;
 };
 
+type HealthState = {
+  status?: string;
+  services?: Record<string, string | { status?: string }>;
+};
+
 const statusIcon: Record<string, React.ReactNode> = {
   queued: <Clock size={14} style={{ color: "var(--color-text-muted)" }} />,
   running: <Loader2 size={14} className="animate-spin" style={{ color: "var(--color-primary)" }} />,
@@ -100,6 +105,8 @@ export default function DashboardPage() {
   const [streamError, setStreamError] = useState<string>("");
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [health, setHealth] = useState<HealthState | null>(null);
+  const [healthError, setHealthError] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
 
   const eventsRef = useRef<HTMLDivElement>(null);
@@ -123,6 +130,36 @@ export default function DashboardPage() {
       setRefreshTick((tick) => tick + 1);
     }, 5000);
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadHealth = async () => {
+      try {
+        const res = await fetch("/api/health", { cache: "no-store" });
+        if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setHealth(data);
+          setHealthError("");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setHealthError(err instanceof Error ? err.message : String(err));
+        }
+      }
+    };
+
+    void loadHealth();
+    const interval = window.setInterval(() => {
+      void loadHealth();
+    }, 15000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
@@ -255,6 +292,94 @@ export default function DashboardPage() {
   return (
     <Shell>
       <div style={{ maxWidth: "1100px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gap: "0.75rem",
+            marginBottom: "1rem",
+          }}
+        >
+          {[
+            {
+              label: "API",
+              value: health?.status ?? (healthError ? "unavailable" : "checking"),
+              tone:
+                health?.status === "healthy"
+                  ? "var(--color-success)"
+                  : healthError
+                    ? "var(--color-error)"
+                    : "var(--color-warning)",
+            },
+            ...["ollama", "searxng", "neo4j", "valkey"].map((name) => {
+              const raw = health?.services?.[name];
+              const value =
+                typeof raw === "string"
+                  ? raw
+                  : typeof raw === "object" && raw
+                    ? raw.status ?? "unknown"
+                    : "unknown";
+              return {
+                label: name,
+                value,
+                tone:
+                  value === "healthy"
+                    ? "var(--color-success)"
+                    : value === "unknown"
+                      ? "var(--color-warning)"
+                      : "var(--color-error)",
+              };
+            }),
+          ].map((item) => (
+            <div
+              key={item.label}
+              style={{
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-lg)",
+                padding: "0.8rem 0.9rem",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "0.72rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  color: "var(--color-text-muted)",
+                  marginBottom: "0.35rem",
+                }}
+              >
+                {item.label}
+              </div>
+              <div
+                style={{
+                  fontSize: "0.95rem",
+                  fontWeight: 700,
+                  color: item.tone,
+                  textTransform: "capitalize",
+                }}
+              >
+                {item.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {healthError && (
+          <div
+            style={{
+              marginBottom: "1rem",
+              padding: "0.7rem 0.9rem",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid color-mix(in oklab, var(--color-error) 40%, transparent)",
+              background: "color-mix(in oklab, var(--color-error) 10%, transparent)",
+              color: "var(--color-error)",
+              fontSize: "0.84rem",
+            }}
+          >
+            Health endpoint unavailable: {healthError}
+          </div>
+        )}
         <h1
           style={{
             fontSize: "1.5rem",
