@@ -5,7 +5,9 @@ OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 pull_model() {
   local model="$1"
   echo "Pulling ${model}..."
-  curl -fsS "${OLLAMA_URL}/api/pull"     -H "Content-Type: application/json"     -d "{"model":"${model}","stream":false}"
+  curl -fsS "${OLLAMA_URL}/api/pull" \
+    -H 'Content-Type: application/json' \
+    -d "{\"model\":\"${model}\",\"stream\":false}"
   echo
 }
 
