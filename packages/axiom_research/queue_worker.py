@@ -86,6 +86,26 @@ def _axiomatizer_base() -> str:
     )
 
 
+def _wiki_base() -> str:
+    return f"http://axiom-api:{settings.axiom_api_port}"
+
+
+async def _generate_wiki_page_for_query(*, query_id: str) -> dict[str, Any] | None:
+    query_id = (query_id or "").strip()
+    if not query_id:
+        return None
+
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            resp = await client.post(f"{_wiki_base()}/wiki/generate/query/{query_id}")
+        resp.raise_for_status()
+        data = resp.json()
+        return data if isinstance(data, dict) else None
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Wiki generation failed for query %r: %s", query_id, exc)
+        return None
+
+
 async def _persist_axiom_from_report(
     *,
     question: str,
@@ -474,6 +494,27 @@ class QueueWorker:
                 job_id,
                 _elapsed(axiomatizer_started_at),
             )
+
+            wiki_started_at = _now_dt()
+            log.info("job=%s phase=wiki.generate.start query_id=%s", job_id, query_id)
+            wiki_result = await _generate_wiki_page_for_query(query_id=str(query_id))
+            if isinstance(wiki_result, dict):
+                log.info(
+                    "job=%s phase=wiki.generate.done query_id=%s elapsed_seconds=%.2f page_id=%r version=%r",
+                    job_id,
+                    query_id,
+                    _elapsed(wiki_started_at),
+                    wiki_result.get("page_id"),
+                    wiki_result.get("version"),
+                )
+            else:
+                log.warning(
+                    "job=%s phase=wiki.generate.failed query_id=%s elapsed_seconds=%.2f",
+                    job_id,
+                    query_id,
+                    _elapsed(wiki_started_at),
+                )
+
             axiom_id = ""
             if isinstance(axiomatizer_result, dict):
                 axiom_id = str(
