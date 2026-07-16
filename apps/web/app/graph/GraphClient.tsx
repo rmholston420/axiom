@@ -313,6 +313,8 @@ export default function GraphClient({
           <ForceGraph3D
             ref={fg3dRef}
             graphData={graphData}
+            linkCurvature={0.22}
+            linkCurveRotation={0.35}
             nodeLabel={(node: GraphNodeDatum) => `${getNodeLabel(node)} (${getNodeType(node)})`}
             linkLabel={(link: ForceLinkObject) => getLinkRelationship(link)}
             nodeAutoColorBy="type"
