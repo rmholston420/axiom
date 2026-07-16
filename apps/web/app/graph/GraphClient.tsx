@@ -343,8 +343,8 @@ export default function GraphClient({
               hash = (hash * 31 + pair.charCodeAt(i)) >>> 0;
             }
 
-            const t = (hash % 360) / 360;
-            const angle = -0.5 + t;
+            const t = (hash % 1000) / 1000; // [0, 1)
+            const angle = (t * 1.3) - 0.65; // roughly [-0.65, 0.65]
             return angle;
           }}
             nodeLabel={(node: GraphNodeDatum) => `${getNodeLabel(node)} (${getNodeType(node)})`}
