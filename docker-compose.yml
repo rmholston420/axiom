@@ -57,6 +57,7 @@ services:
   axiom-neo4j:
     image: neo4j:5
     container_name: axiom-neo4j
+    restart: unless-stopped
     environment:
       NEO4J_AUTH: neo4j/collosus
     volumes:
