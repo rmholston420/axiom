@@ -67,3 +67,24 @@ curl http://localhost:7200/health  # smoke test
 - [x] Slice 5 — Council
 - [x] Slice 6 — Axiomatizer
 - [x] Slice 7 — Hardening
+
+## Web API routing notes
+
+The Next.js frontend (`axiom-web`) and FastAPI backend (`axiom-api`) run as
+separate containers. The known-good setup is:
+
+- No global `/api/:path*` rewrite in `apps/web/next.config.ts`.
+- App routes under `apps/web/app/api/...` act as the proxy layer.
+- `API_ORIGIN` points at `http://axiom-api:7200` (container-safe), not
+  `http://127.0.0.1:7200`.
+
+If `/api/*` calls start failing with `ECONNREFUSED 127.0.0.1:7200` in
+`axiom-web` logs, check:
+
+1. `apps/web/next.config.ts` for any `/api` rewrites pointing at another
+   origin.
+2. `apps/web/.env.local` or environment variables for `API_ORIGIN`
+   pointing at localhost instead of `axiom-api`.
+
+For a more detailed explanation, see `docs/web-architecture.md`.
+
