@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.7] - 2026-07-16
+
+### Changed
+- Replaced the axiom-worker Docker healthcheck with a real Python Redis ping using the configured AXIOM_REDIS_URL.
+- Recreated the axiom-worker container so the updated healthcheck is active in the running stack.
+
+### Fixed
+- Added restart: unless-stopped to the axiom-neo4j service in docker-compose.yml.
+- Recreated the axiom-neo4j container so the restart policy is active in the running stack.
+
 All notable changes to this project will be documented in this file.
 
 ## [v0.2.3] - 2026-07-15
