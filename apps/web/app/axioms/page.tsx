@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookMarked, CheckCircle2, XCircle, Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { BookMarked, CheckCircle2, XCircle, Loader2, RefreshCw, AlertCircle, Filter } from "lucide-react";
 import Shell from "@/components/Shell";
 import { fetchAxioms, type AxiomRecord } from "@/lib/api";
 
@@ -99,6 +99,7 @@ export default function AxiomsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [limit, setLimit] = useState(25);
+  const [showWarningsOnly, setShowWarningsOnly] = useState(false);
 
   async function load(n: number) {
     setLoading(true);
@@ -112,6 +113,11 @@ export default function AxiomsPage() {
       setLoading(false);
     }
   }
+
+  const warningCount = axioms.filter((a) => a.evaluation_warning === true).length;
+  const visibleAxioms = showWarningsOnly
+    ? axioms.filter((a) => a.evaluation_warning === true)
+    : axioms;
 
   useEffect(() => {
     let cancelled = false;
@@ -168,7 +174,34 @@ export default function AxiomsPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setShowWarningsOnly((v) => !v)}
+              aria-pressed={showWarningsOnly}
+              title="Toggle warning-only curation view"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.375rem",
+                padding: "0.4rem 0.875rem",
+                background: showWarningsOnly
+                  ? "color-mix(in oklab, var(--color-warning) 12%, transparent)"
+                  : "var(--color-surface)",
+                border: showWarningsOnly
+                  ? "1px solid color-mix(in oklab, var(--color-warning) 30%, transparent)"
+                  : "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                color: showWarningsOnly ? "var(--color-warning)" : "var(--color-text-muted)",
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <Filter size={13} />
+              {showWarningsOnly ? "Showing warnings only" : "Show warnings only"}
+            </button>
+
             <select
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
@@ -218,14 +251,15 @@ export default function AxiomsPage() {
           }}
         >
           {[
-            { label: "Total", value: axioms.length, color: "var(--color-primary)" },
-            { label: "Approved", value: axioms.filter((a) => a.approved === true).length, color: "var(--color-success)" },
-            { label: "Pending", value: axioms.filter((a) => a.approved !== true).length, color: "var(--color-text-muted)" },
+            { label: "Total", value: visibleAxioms.length, color: "var(--color-primary)" },
+            { label: "Approved", value: visibleAxioms.filter((a) => a.approved === true).length, color: "var(--color-success)" },
+            { label: "Pending", value: visibleAxioms.filter((a) => a.approved !== true).length, color: "var(--color-text-muted)" },
+            { label: "Warnings", value: warningCount, color: "var(--color-warning)" },
             {
               label: "Avg Confidence",
               value:
-                axioms.length > 0
-                  ? Math.round((axioms.reduce((s, a) => s + (a.confidence ?? 0), 0) / axioms.length) * 100) + "%"
+                visibleAxioms.length > 0
+                  ? Math.round((visibleAxioms.reduce((s, a) => s + (a.confidence ?? 0), 0) / visibleAxioms.length) * 100) + "%"
                   : "—",
               color: "var(--color-warning)",
             },
@@ -271,7 +305,7 @@ export default function AxiomsPage() {
         )}
 
         {/* Loading skeleton */}
-        {loading && axioms.length === 0 && (
+        {loading && visibleAxioms.length === 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             {Array.from({ length: 5 }).map((_, i) => (
               <div
@@ -289,7 +323,7 @@ export default function AxiomsPage() {
         )}
 
         {/* Empty state */}
-        {!loading && axioms.length === 0 && !error && (
+        {!loading && visibleAxioms.length === 0 && !error && (
           <div
             style={{
               display: "flex",
@@ -302,18 +336,20 @@ export default function AxiomsPage() {
           >
             <BookMarked size={40} style={{ marginBottom: "1rem", color: "var(--color-text-faint)" }} />
             <h3 style={{ color: "var(--color-text)", marginBottom: "0.5rem", fontSize: "1rem", fontWeight: 600 }}>
-              No axioms yet
+              {showWarningsOnly ? "No warning-state axioms" : "No axioms yet"}
             </h3>
             <p style={{ maxWidth: "36ch", fontSize: "0.875rem" }}>
-              Enable the Axiomatizer in Settings and run a research job to generate knowledge statements.
+              {showWarningsOnly
+                ? "No records with evaluation warnings are present in the current result set."
+                : "Enable the Axiomatizer in Settings and run a research job to generate knowledge statements."}
             </p>
           </div>
         )}
 
         {/* Axiom cards */}
-        {axioms.length > 0 && (
+        {visibleAxioms.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {axioms.map((axiom, idx) => {
+            {visibleAxioms.map((axiom, idx) => {
               const id = axiom.axiom_id ?? axiom.id ?? String(idx);
               return (
                 <div
