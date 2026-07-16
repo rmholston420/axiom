@@ -235,6 +235,21 @@ export default function DashboardPage() {
 
   const elapsedMs = startedAt ? Math.max(0, now - startedAt) : 0;
 
+  const formatElapsedSeconds = (totalSeconds: number): string => {
+    if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "0.0s";
+    if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}m ${seconds.toFixed(1)}s`;
+  };
+
+  const displayElapsed =
+    stream.phase === "done" && typeof stream.elapsedSeconds === "number"
+      ? formatElapsedSeconds(stream.elapsedSeconds)
+      : startedAt
+        ? formatElapsedSeconds(elapsedMs / 1000)
+        : null;
+
   const references = useMemo(
     () => extractReferences(activeJob, report),
     [activeJob, report],
@@ -621,6 +636,11 @@ export default function DashboardPage() {
                       {stream.findingCount !== null && (
                         <div style={{ color: "var(--color-text-muted)" }}>
                           Findings: {stream.findingCount}
+                        </div>
+                      )}
+                      {displayElapsed && (
+                        <div style={{ color: "var(--color-text-muted)" }}>
+                          Elapsed: {displayElapsed}
                         </div>
                       )}
                     </div>
