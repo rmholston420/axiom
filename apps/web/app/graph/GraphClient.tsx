@@ -290,8 +290,18 @@ export default function GraphClient({
             const isFocused = hoverNodeId === nodeId || selectedNodeId === nodeId;
             if (node.x == null || node.y == null) return;
             const fontSize = Math.max(10, 12 / globalScale);
-            const radius = isFocused ? (isActive ? 9 : 7.5) : (isActive ? 7 : 5.5);
-            ctx.beginPath();
+           const radius = isFocused ? (isActive ? 9 : 7.5) : (isActive ? 7 : 5.5);
+
+           if (isFocused) {
+             const haloRadius = radius + 5;
+             ctx.beginPath();
+             ctx.arc(node.x, node.y, haloRadius, 0, 2 * Math.PI, false);
+             ctx.strokeStyle = "rgba(248, 250, 252, 0.75)";
+             ctx.lineWidth = 2;
+             ctx.stroke();
+           }
+
+           ctx.beginPath();
             ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
               ctx.fillStyle = isActive ? color : "rgba(148, 163, 184, 0.35)";
               ctx.fill();
