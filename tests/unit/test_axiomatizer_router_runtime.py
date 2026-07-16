@@ -70,12 +70,12 @@ def make_app(with_driver=None):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_propose_axiom_success():
+async def test_propose_axioms_success():
     ollama = DummyOllama(
         ['{"statement":"A implies B","justification":"because","confidence":0.75}']
     )
 
-    result = await ax_router._propose_axiom(ollama, "source text", "ctx")
+    result = await ax_router._propose_axioms(ollama, "source text", "ctx")
 
     assert result == {
         "statement": "A implies B",
@@ -86,11 +86,11 @@ async def test_propose_axiom_success():
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_propose_axiom_parse_failure_raises_http_502():
+async def test_propose_axioms_parse_failure_raises_http_502():
     ollama = DummyOllama(["not json at all"])
 
     with pytest.raises(ax_router.HTTPException) as excinfo:
-        await ax_router._propose_axiom(ollama, "source text", "")
+        await ax_router._propose_axioms(ollama, "source text", "")
 
     assert excinfo.value.status_code == 502
     assert "Unparseable axiomatizer JSON" in excinfo.value.detail
@@ -103,7 +103,7 @@ async def test_evaluate_axiom_success():
 
     result = await ax_router._evaluate_axiom(ollama, "stmt", "justification")
 
-    assert result == {"approved": False, "reason": "too vague"}
+    assert result == {"approved": False, "reason": "too vague", "evaluation_warning": False}
 
 
 @pytest.mark.unit
@@ -114,7 +114,7 @@ async def test_evaluate_axiom_parse_failure_defaults_to_approved():
     result = await ax_router._evaluate_axiom(ollama, "stmt", "justification")
 
     assert result["approved"] is True
-    assert "defaulting to approved" in result["reason"]
+    assert "treating as approved" in result["reason"]
 
 
 @pytest.mark.unit
@@ -167,8 +167,8 @@ def test_run_axiomatizer_empty_statement_returns_502(monkeypatch):
     monkeypatch.setattr(ax_router.settings, "axiom_axiomatizer_enabled", True)
     monkeypatch.setattr(
         ax_router,
-        "_propose_axiom",
-        lambda *a, **k: _awaitable({"statement": "", "justification": "j", "confidence": 0.5}),
+        "_propose_axioms",
+        lambda *a, **k: _awaitable([{"statement": "", "justification": "j", "confidence": 0.5}]),
     )
 
     client = TestClient(make_app())
@@ -192,10 +192,10 @@ def test_run_axiomatizer_success_with_shared_driver(monkeypatch):
     monkeypatch.setattr(ax_router, "OllamaProvider", lambda: object())
     monkeypatch.setattr(
         ax_router,
-        "_propose_axiom",
-        lambda *a, **k: _awaitable(
+        "_propose_axioms",
+        lambda *a, **k: _awaitable([
             {"statement": "axiom statement", "justification": "because", "confidence": 0.9}
-        ),
+        ]),
     )
     monkeypatch.setattr(
         ax_router,
@@ -217,8 +217,10 @@ def test_run_axiomatizer_success_with_shared_driver(monkeypatch):
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["statement"] == "axiom statement"
-    assert payload["label"] == "axiom statement"
+    assert isinstance(payload, list)
+    assert len(payload) == 1
+    assert payload[0]["statement"] == "axiom statement"
+    assert payload[0]["label"] == "axiom statement"
     assert payload["persisted"] is True
     assert driver.closed is False
     assert len(driver.session_obj.run_calls) == 1
@@ -230,10 +232,10 @@ def test_run_axiomatizer_success_with_standalone_driver(monkeypatch):
     monkeypatch.setattr(ax_router, "OllamaProvider", lambda: object())
     monkeypatch.setattr(
         ax_router,
-        "_propose_axiom",
-        lambda *a, **k: _awaitable(
+        "_propose_axioms",
+        lambda *a, **k: _awaitable([
             {"statement": "standalone axiom", "justification": "because", "confidence": 0.7}
-        ),
+        ]),
     )
     monkeypatch.setattr(
         ax_router,
