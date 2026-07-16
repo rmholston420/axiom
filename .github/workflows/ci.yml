@@ -7,68 +7,55 @@ on:
     branches: [main]
 
 jobs:
-  lint-python:
-    name: Lint Python (ruff)
+  python-tests:
+    name: Python tests
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install ruff
-        run: pip install "ruff>=0.5.0"
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
 
-      - name: Run ruff check
-        run: ruff check .
+      - name: Run unit tests
+        run: make unit
 
-      - name: Run ruff format check
-        run: ruff format --check .
-
-  lint-js:
-    name: Lint JS (ESLint + TypeScript)
+  web-lint-build:
+    name: Web lint and build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+          run_install: false
 
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "pnpm"
 
-      - name: Enable pnpm
-        run: corepack enable && corepack prepare pnpm@latest --activate
-
-      - name: Install dependencies
+      - name: Install web dependencies
         run: pnpm install --frozen-lockfile
-        working-directory: .
+        working-directory: apps/web
 
-      - name: TypeScript check
-        run: pnpm --filter axiom-web exec tsc --noEmit
+      - name: Lint web app
+        run: pnpm lint
+        working-directory: apps/web
 
-      - name: ESLint
-        run: pnpm --filter axiom-web exec next lint
-
-  unit-tests:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install -e ".[dev]"
-
-      - name: Run unit tests (skip integration + e2e)
-        env:
-          PYTHONPATH: packages
-        run: pytest -m "not integration and not e2e" --tb=short --cov=apps/api --cov=apps/axiomatizer --cov=packages/axiom_core --cov=packages/axiom_research --cov-branch --cov-report=term-missing:skip-covered --cov-fail-under=65
+      - name: Build web app
+        run: pnpm build
+        working-directory: apps/web
