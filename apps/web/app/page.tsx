@@ -294,6 +294,12 @@ export default function DashboardPage() {
         const subQuery = String(findingData["sub_query"] ?? "").trim();
         const summary = String(findingData["summary"] ?? "").trim();
 
+        const normalizedSummary = summary.replace(/\s+/g, " ").trim();
+        const summarySnippet =
+          normalizedSummary.length > 120
+            ? `${normalizedSummary.slice(0, 117).trimEnd()}...`
+            : normalizedSummary;
+
         const lineParts: string[] = [];
 
         if (index > 0) {
@@ -306,8 +312,8 @@ export default function DashboardPage() {
           lineParts.push("– " + subQuery);
         }
 
-        if (summary) {
-          lineParts.push(summary);
+        if (summarySnippet) {
+          lineParts.push("– " + summarySnippet);
         }
 
         const findingLine = lineParts.join(" ");
