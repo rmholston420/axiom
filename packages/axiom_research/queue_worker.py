@@ -16,6 +16,11 @@ Lifecycle sequence per job::
     response.output_text.completed — full accumulated text (synthesis done)
     response.completed        — terminal success event with metadata
     error                     — terminal failure event
+
+``response.completed`` now includes:
+    elapsed_seconds  — total wall-clock seconds the job took
+    started_at       — ISO-8601 UTC timestamp when the job began running
+    completed_at     — ISO-8601 UTC timestamp when the job finished
 """
 
 from __future__ import annotations
@@ -64,6 +69,15 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _now_dt() -> datetime:
+    return datetime.now(UTC)
+
+
+def _elapsed(start: datetime) -> float:
+    """Return wall-clock seconds since *start*, rounded to two decimal places."""
+    return round((_now_dt() - start).total_seconds(), 2)
+
+
 class JobStore:
     """Thin helper for reading/writing job state in Valkey hashes."""
 
@@ -78,6 +92,9 @@ class JobStore:
             "status": JobStatus.QUEUED.value,
             "created_at": _now(),
             "updated_at": _now(),
+            "started_at": "",
+            "completed_at": "",
+            "elapsed_seconds": None,
             "report": "",
             "error": "",
         }
@@ -192,9 +209,16 @@ class QueueWorker:
           response.sources    x N sub-queries
           response.output_text.delta  x many (streaming tokens)
           response.output_text.completed
-          response.completed
+          response.completed  ← includes elapsed_seconds, started_at, completed_at
         On failure: error
         """
+        # Record wall-clock start time for elapsed-time calculation.
+        job_started_at: datetime = _now_dt()
+        started_at_iso: str = job_started_at.isoformat()
+
+        # Persist started_at immediately so the REST endpoint reflects it.
+        await self._store.update(job_id, started_at=started_at_iso)
+
         # --- response.created ---
         await self._append_and_publish(
             job_id,
@@ -312,10 +336,16 @@ class QueueWorker:
                 {"text": full_report},
             )
 
+            # Compute elapsed time now that all work is done.
+            elapsed: float = _elapsed(job_started_at)
+            completed_at_iso: str = _now()
+
             await self._store.update(
                 job_id,
                 status=JobStatus.DONE.value,
                 report=full_report,
+                elapsed_seconds=elapsed,
+                completed_at=completed_at_iso,
             )
 
             # --- response.completed (terminal) ---
@@ -327,17 +357,34 @@ class QueueWorker:
                     "report": full_report,
                     "finding_count": len(findings),
                     "query_id": str(query_id),
+                    "elapsed_seconds": elapsed,
+                    "started_at": started_at_iso,
+                    "completed_at": completed_at_iso,
                 },
             )
 
         except Exception as exc:  # noqa: BLE001
             log.exception("Job %s failed", job_id)
-            await self._store.update(job_id, status=JobStatus.FAILED.value, error=str(exc))
+            elapsed_on_error: float = _elapsed(job_started_at)
+            completed_at_iso_err: str = _now()
+            await self._store.update(
+                job_id,
+                status=JobStatus.FAILED.value,
+                error=str(exc),
+                elapsed_seconds=elapsed_on_error,
+                completed_at=completed_at_iso_err,
+            )
             # --- error (terminal) ---
             await self._append_and_publish(
                 job_id,
                 "error",
-                {"message": str(exc), "error": str(exc)},
+                {
+                    "message": str(exc),
+                    "error": str(exc),
+                    "elapsed_seconds": elapsed_on_error,
+                    "started_at": started_at_iso,
+                    "completed_at": completed_at_iso_err,
+                },
             )
 
     async def run_forever(self) -> None:

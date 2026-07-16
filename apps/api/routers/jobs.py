@@ -22,6 +22,9 @@ class JobResponse(BaseModel):
     status: str
     created_at: str
     updated_at: str
+    started_at: str = ""
+    completed_at: str = ""
+    elapsed_seconds: float | None = None
     report: str
     error: str
 
