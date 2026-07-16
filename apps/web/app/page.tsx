@@ -252,10 +252,11 @@ export default function DashboardPage() {
         }
 
         if (parsed.type === "finding" && parsed.data) {
+          const findingData = parsed.data as Record<string, unknown>;
           const finding = {
-            index: Number(parsed.data.index ?? 0),
-            sub_query: String(parsed.data.sub_query ?? ""),
-            summary: String(parsed.data.summary ?? ""),
+            index: Number(findingData["index"] ?? 0),
+            sub_query: String(findingData["sub_query"] ?? ""),
+            summary: String(findingData["summary"] ?? ""),
           };
 
           const findingMessage = [
