@@ -486,6 +486,10 @@ class QueueWorker:
                 _elapsed(synthesis_started_at),
             )
 
+            wiki_page_id = ""
+            wiki_status = ""
+            wiki_error = ""
+
             axiomatizer_started_at = _now_dt()
             log.info("job=%s phase=axiomatizer.start enabled=%s", job_id, settings.axiom_axiomatizer_enabled)
             axiomatizer_result = await _persist_axiom_from_report(
@@ -569,9 +573,9 @@ class QueueWorker:
                 elapsed_seconds=elapsed,
                 completed_at=completed_at_iso,
                 axiom_id=axiom_id,
-                wiki_page_id=locals().get("wiki_page_id", ""),
-                wiki_status=locals().get("wiki_status", ""),
-                wiki_error=locals().get("wiki_error", ""),
+                wiki_page_id=wiki_page_id,
+                wiki_status=wiki_status,
+                wiki_error=wiki_error,
             )
             log.info(
                 "job=%s phase=process.done finding_count=%s report_chars=%s elapsed_seconds=%.2f axiom_id=%r",
@@ -595,9 +599,9 @@ class QueueWorker:
                     "started_at": started_at_iso,
                     "completed_at": completed_at_iso,
                     "axiom_id": axiom_id,
-                    "wiki_page_id": locals().get("wiki_page_id", ""),
-                    "wiki_status": locals().get("wiki_status", ""),
-                    "wiki_error": locals().get("wiki_error", ""),
+                    "wiki_page_id": wiki_page_id,
+                    "wiki_status": wiki_status,
+                    "wiki_error": wiki_error,
                 },
             )
 
