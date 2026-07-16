@@ -1,5 +1,5 @@
-const DEFAULT_API_ORIGIN = "http://127.0.0.1:7200";
-const REQUEST_TIMEOUT_MS = 15000;
+const DEFAULT_API_ORIGIN = "http://axiom-api:7200";
+const REQUEST_TIMEOUT_MS = 90000;
 
 function trimSlash(value: string): string {
   return value.replace(/\/+$/, "");
