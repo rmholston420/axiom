@@ -43,3 +43,7 @@ output/
 # Python build artifacts
 
 # Python cache artifacts
+# Python build artifacts
+build/
+**/build/
+
