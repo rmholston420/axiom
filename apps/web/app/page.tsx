@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import Shell from "@/components/Shell";
 import { type Job, fetchJobs, createJob } from "@/lib/api";
+import { parseResearchStreamMessage } from "./researchStream";
 import {
   Loader2,
   Send,
@@ -109,6 +110,7 @@ export default function DashboardPage() {
   const [submitError, setSubmitError] = useState("");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>([]);
+  const [hasSeenEvent, setHasSeenEvent] = useState(false);
   const [streamReport, setStreamReport] = useState<string>("");
   const [streamError, setStreamError] = useState<string>("");
   const [startedAt, setStartedAt] = useState<number | null>(null);
@@ -200,6 +202,7 @@ export default function DashboardPage() {
   const openStream = useCallback((jobId: string) => {
     sseRef.current?.close();
     setEvents([]);
+      setHasSeenEvent(false);
     setStreamReport("");
     setStreamError("");
     setActiveJobId(jobId);
@@ -211,29 +214,60 @@ export default function DashboardPage() {
 
 
     es.onmessage = (e) => {
-      const data = e.data as string;
+        const data = e.data;
 
-      if (data === "[DONE]" || data === "\"[DONE]\"") {
-        es.close();
-        void loadJobs().then(() => {
-          setTimeout(() => {
-            void loadJobs();
-          }, 600);
-        });
-        return;
-      }
+        if (data === "[DONE]" || data === "\"[DONE]\"") {
+          es.close();
+          setTimeout(() => refreshJobs(), 400);
+          return;
+        }
 
-      try {
-        const parsed = JSON.parse(data);
-        if (parsed.type === "event") setEvents((prev) => [...prev, parsed.message]);
-        if (parsed.type === "report") setStreamReport(parsed.content);
-        if (parsed.type === "error") setStreamError(parsed.message);
-        if (parsed.type === "finding" && parsed.data) {
-          const item: LiveFinding = {
-            index: Number(parsed.data.index ?? 0),
-            subQuery: String(parsed.data.sub_query ?? "").trim(),
-            summary: String(parsed.data.summary ?? "").trim(),
-          };
+        const parsed = parseResearchStreamMessage(data);
+
+        if (parsed) {
+          setHasSeenEvent(true);
+
+          if (parsed.type === "event") {
+            setEvents((prev) => [...prev, String(parsed.message ?? "")].filter(Boolean));
+            return;
+          }
+
+          if (parsed.type === "report") {
+            setLiveReport(String(parsed.content ?? ""));
+            return;
+          }
+
+          if (parsed.type === "error") {
+            setLiveError(String(parsed.message ?? "Unknown error"));
+            setEvents((prev) => [...prev, String(parsed.message ?? "Unknown error")]);
+            return;
+          }
+
+          if (parsed.type === "finding" && parsed.data) {
+            const finding = {
+              index: Number(parsed.data.index ?? 0),
+              sub_query: String(parsed.data.sub_query ?? ""),
+              summary: String(parsed.data.summary ?? ""),
+            };
+            setLiveFindings((prev) => [...prev, finding]);
+            setEvents((prev) => [
+              ...prev,
+              [finding.index ? `Finding ${finding.index}:` : "Finding:", finding.sub_query, finding.summary]
+                .filter(Boolean)
+                .join(" ")
+            ]);
+            return;
+          }
+
+          setEvents((prev) => [...prev, data]);
+          return;
+        }
+
+        if (String(data).trim()) {
+          setHasSeenEvent(true);
+          setEvents((prev) => [...prev, data]);
+        }
+      };
           if (item.index > 0) {
             setEvents((prev) => [
               ...prev,
@@ -669,7 +703,7 @@ export default function DashboardPage() {
                         color: "var(--color-text-muted)",
                       }}
                     >
-                      {events.length === 0 && <span style={{ opacity: 0.5 }}>Waiting for events…</span>}
+                      {!hasSeenEvent && <span style={{ opacity: 0.5 }}>Waiting for events…</span>}
                       {events.map((ev, i) => (
                         <div key={i} style={{ marginBottom: "0.125rem" }}>
                           <span style={{ color: "var(--color-primary)", marginRight: "0.5rem" }}>›</span>
