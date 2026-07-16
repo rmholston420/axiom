@@ -26,6 +26,10 @@ class AxiomProxyRequest(BaseModel):
     label: str = ""
 
 
+class ApproveProxyRequest(BaseModel):
+    approved: bool
+
+
 @router.post("")
 async def proxy_axiomatizer(body: AxiomProxyRequest):
     if not settings.axiom_axiomatizer_enabled:
@@ -59,6 +63,26 @@ async def proxy_list_axioms(limit: int = Query(default=50, ge=1, le=500)):
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(
                 f"{_AXIOMATIZER_BASE}/axiomatizer/axioms", params={"limit": limit}
+            )
+        resp.raise_for_status()
+        return resp.json()
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Axiom Axiomatizer service is not reachable at {_AXIOMATIZER_BASE}.",
+        )
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
+
+
+@router.patch("/axioms/{axiom_id}/approve")
+async def proxy_approve_axiom(axiom_id: str, body: ApproveProxyRequest):
+    """Proxy manual approve/reject through to the axiomatizer service."""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.patch(
+                f"{_AXIOMATIZER_BASE}/axiomatizer/axioms/{axiom_id}/approve",
+                json=body.model_dump(),
             )
         resp.raise_for_status()
         return resp.json()

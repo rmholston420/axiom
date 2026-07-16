@@ -159,6 +159,14 @@ export async function fetchAxioms(limit = 25): Promise<AxiomRecord[]> {
   return getJson<AxiomRecord[]>(`${API_BASE}/axioms?limit=${encodeURIComponent(String(limit))}`);
 }
 
+export async function approveAxiom(id: string, approved: boolean): Promise<{ id: string; approved: boolean }> {
+  return getJson<{ id: string; approved: boolean }>(
+    `${API_BASE}/axioms/${encodeURIComponent(id)}/approve`,
+    { method: "PATCH", body: JSON.stringify({ approved }) },
+    1,
+  );
+}
+
 export async function fetchSettings(): Promise<SettingsData> {
   return getJson<SettingsData>(`${API_BASE}/settings`);
 }

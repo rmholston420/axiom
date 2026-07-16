@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookMarked, CheckCircle2, XCircle, Loader2, RefreshCw, AlertCircle, Filter, Copy } from "lucide-react";
+import { BookMarked, CheckCircle2, XCircle, Loader2, RefreshCw, AlertCircle, Filter, Copy, ThumbsUp, ThumbsDown } from "lucide-react";
 import Shell from "@/components/Shell";
-import { fetchAxioms, type AxiomRecord } from "@/lib/api";
+import { fetchAxioms, approveAxiom, type AxiomRecord } from "@/lib/api";
 
 function ConfidenceBadge({ value }: { value: number }) {
   const pct = Math.round(value * 100);
@@ -94,6 +94,92 @@ function EvaluationWarningBadge({ show }: { show?: boolean }) {
   );
 }
 
+function ApproveButtons({
+  axiom,
+  onUpdate,
+}: {
+  axiom: AxiomRecord;
+  onUpdate: (id: string, approved: boolean) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const id = axiom.id ?? axiom.axiom_id ?? "";
+
+  async function toggle(newApproved: boolean) {
+    if (!id || busy) return;
+    setBusy(true);
+    try {
+      await approveAxiom(id, newApproved);
+      onUpdate(id, newApproved);
+    } catch {
+      // silent — the badge won't update, user can retry
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const isApproved = axiom.approved === true;
+  const isPending = axiom.approved !== true;
+
+  return (
+    <div style={{ display: "flex", gap: "0.375rem", alignItems: "center" }}>
+      <button
+        type="button"
+        disabled={busy || isApproved}
+        onClick={() => void toggle(true)}
+        title="Approve this axiom"
+        aria-label="Approve axiom"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.25rem",
+          padding: "0.25rem 0.625rem",
+          fontSize: "0.75rem",
+          fontWeight: 600,
+          borderRadius: "var(--radius-md)",
+          border: "1px solid color-mix(in oklab, var(--color-success) 35%, transparent)",
+          background: isApproved
+            ? "color-mix(in oklab, var(--color-success) 18%, transparent)"
+            : "var(--color-surface)",
+          color: isApproved ? "var(--color-success)" : "var(--color-text-muted)",
+          cursor: isApproved ? "default" : "pointer",
+          opacity: busy ? 0.6 : 1,
+          transition: "background 180ms, color 180ms",
+        }}
+      >
+        {busy ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> : <ThumbsUp size={11} />}
+        Approve
+      </button>
+      <button
+        type="button"
+        disabled={busy || isPending}
+        onClick={() => void toggle(false)}
+        title="Reject this axiom"
+        aria-label="Reject axiom"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.25rem",
+          padding: "0.25rem 0.625rem",
+          fontSize: "0.75rem",
+          fontWeight: 600,
+          borderRadius: "var(--radius-md)",
+          border: "1px solid color-mix(in oklab, var(--color-error) 35%, transparent)",
+          background: isPending
+            ? "color-mix(in oklab, var(--color-error) 14%, transparent)"
+            : "var(--color-surface)",
+          color: isPending ? "var(--color-error)" : "var(--color-text-muted)",
+          cursor: isPending ? "default" : "pointer",
+          opacity: busy ? 0.6 : 1,
+          transition: "background 180ms, color 180ms",
+        }}
+      >
+        {busy ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} /> : <ThumbsDown size={11} />}
+        Reject
+      </button>
+    </div>
+  );
+}
+
 export default function AxiomsPage() {
   const [axioms, setAxioms] = useState<AxiomRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,6 +200,16 @@ export default function AxiomsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleApprovalUpdate(id: string, approved: boolean) {
+    setAxioms((prev) =>
+      prev.map((a) =>
+        (a.id === id || a.axiom_id === id)
+          ? { ...a, approved, eval_reason: approved ? "Manually approved" : "Manually rejected" }
+          : a
+      )
+    );
   }
 
   const warningAxioms = axioms.filter((a) => a.evaluation_warning === true);
@@ -291,269 +387,179 @@ export default function AxiomsPage() {
                   ? "color-mix(in oklab, var(--color-primary) 10%, transparent)"
                   : "var(--color-surface)",
                 border: warningCount > 0
-                  ? "1px solid color-mix(in oklab, var(--color-primary) 28%, transparent)"
+                  ? "1px solid color-mix(in oklab, var(--color-primary) 30%, transparent)"
                   : "1px solid var(--color-border)",
                 borderRadius: "var(--radius-md)",
-                color: warningCount > 0 ? "var(--color-primary)" : "var(--color-text-faint)",
+                color: warningCount > 0 ? "var(--color-primary)" : "var(--color-text-muted)",
                 fontSize: "0.8125rem",
                 fontWeight: 600,
-                cursor: warningCount === 0 ? "not-allowed" : "pointer",
+                cursor: warningCount > 0 ? "pointer" : "not-allowed",
+                opacity: warningCount === 0 ? 0.5 : 1,
               }}
             >
               <Copy size={13} />
-              Copy warnings
+              {copyMessage || (warningCount > 0 ? `Export ${warningCount} warnings` : "No warnings")}
             </button>
 
             <button
+              type="button"
               onClick={() => void load(limit)}
               disabled={loading}
+              title="Refresh axioms"
+              aria-label="Refresh"
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: "0.375rem",
-                padding: "0.4rem 0.875rem",
+                padding: "0.4rem",
                 background: "var(--color-surface)",
                 border: "1px solid var(--color-border)",
                 borderRadius: "var(--radius-md)",
                 color: "var(--color-text-muted)",
-                fontSize: "0.8125rem",
-                cursor: loading ? "not-allowed" : "pointer",
+                cursor: "pointer",
               }}
             >
-              {loading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-              Refresh
+              {loading ? (
+                <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+              ) : (
+                <RefreshCw size={15} />
+              )}
             </button>
-
-            {copyMessage && (
-              <span
-                style={{
-                  fontSize: "0.78rem",
-                  color: "var(--color-text-muted)",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {copyMessage}
-              </span>
-            )}
           </div>
-        </div>
-
-        {/* Stats bar */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-            gap: "0.75rem",
-            marginBottom: "1.25rem",
-          }}
-        >
-          {[
-            { label: "Total", value: visibleAxioms.length, color: "var(--color-primary)" },
-            { label: "Approved", value: visibleAxioms.filter((a) => a.approved === true).length, color: "var(--color-success)" },
-            { label: "Pending", value: visibleAxioms.filter((a) => a.approved !== true).length, color: "var(--color-text-muted)" },
-            { label: "Warnings", value: warningCount, color: "var(--color-warning)" },
-            {
-              label: "Avg Confidence",
-              value:
-                visibleAxioms.length > 0
-                  ? Math.round((visibleAxioms.reduce((s, a) => s + (a.confidence ?? 0), 0) / visibleAxioms.length) * 100) + "%"
-                  : "—",
-              color: "var(--color-warning)",
-            },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              style={{
-                padding: "0.9rem 1rem",
-                background: "var(--color-surface)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-lg)",
-              }}
-            >
-              <div style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                {label}
-              </div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 700, color, marginTop: "0.25rem", fontVariantNumeric: "tabular-nums" }}>
-                {value}
-              </div>
-            </div>
-          ))}
         </div>
 
         {/* Error */}
         {error && (
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              marginBottom: "1rem",
-              padding: "0.875rem 1rem",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-error)",
+              background: "color-mix(in oklab, var(--color-error) 10%, transparent)",
+              border: "1px solid color-mix(in oklab, var(--color-error) 30%, transparent)",
               color: "var(--color-error)",
-              background: "color-mix(in oklab, var(--color-error) 8%, transparent)",
+              borderRadius: "var(--radius-md)",
+              padding: "0.75rem 1rem",
+              marginBottom: "1rem",
               fontSize: "0.875rem",
             }}
           >
-            <AlertCircle size={15} />
             {error}
           </div>
         )}
 
-        {/* Loading skeleton */}
-        {loading && visibleAxioms.length === 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  height: "100px",
-                  borderRadius: "var(--radius-lg)",
-                  background: "linear-gradient(90deg, var(--color-surface) 25%, var(--color-surface-offset) 50%, var(--color-surface) 75%)",
-                  backgroundSize: "200% 100%",
-                  animation: "shimmer 1.5s ease-in-out infinite",
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Empty state */}
-        {!loading && visibleAxioms.length === 0 && !error && (
+        {/* Empty */}
+        {!loading && !error && visibleAxioms.length === 0 && (
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
               textAlign: "center",
-              padding: "4rem 2rem",
+              padding: "3rem 1rem",
               color: "var(--color-text-muted)",
+              fontSize: "0.9rem",
             }}
           >
-            <BookMarked size={40} style={{ marginBottom: "1rem", color: "var(--color-text-faint)" }} />
-            <h3 style={{ color: "var(--color-text)", marginBottom: "0.5rem", fontSize: "1rem", fontWeight: 600 }}>
-              {showWarningsOnly ? "No warning-state axioms" : "No axioms yet"}
-            </h3>
-            <p style={{ maxWidth: "36ch", fontSize: "0.875rem" }}>
-              {showWarningsOnly
-                ? "No records with evaluation warnings are present in the current result set."
-                : "Enable the Axiomatizer in Settings and run a research job to generate knowledge statements."}
-            </p>
+            No axioms found. Run the Axiomatizer to generate some.
           </div>
         )}
 
         {/* Axiom cards */}
-        {visibleAxioms.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {visibleAxioms.map((axiom, idx) => {
-              const id = axiom.axiom_id ?? axiom.id ?? String(idx);
-              return (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          {visibleAxioms.map((axiom, idx) => {
+            const axiomId = axiom.id ?? axiom.axiom_id ?? String(idx);
+            return (
+              <div
+                key={axiomId}
+                style={{
+                  background: "var(--color-surface)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "var(--radius-lg)",
+                  padding: "1rem 1.25rem",
+                  boxShadow: "var(--shadow-sm)",
+                }}
+              >
+                {/* Card header */}
                 <div
-                  key={id}
                   style={{
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-lg)",
-                    padding: "1rem 1.25rem",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: "1rem",
+                    flexWrap: "wrap",
+                    marginBottom: "0.5rem",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      gap: "0.75rem",
-                      marginBottom: "0.6rem",
-                      flexWrap: "wrap",
-                    }}
-                  >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", flex: 1, minWidth: 0 }}>
                     <span
                       style={{
-                        fontSize: "0.8rem",
-                        fontWeight: 600,
-                        color: "var(--color-primary)",
-                        letterSpacing: "0.04em",
-                        textTransform: "uppercase",
-                        fontVariantNumeric: "tabular-nums",
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        color: "var(--color-text)",
+                        wordBreak: "break-word",
                       }}
                     >
                       {axiom.label || `Axiom #${idx + 1}`}
                     </span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                      <ConfidenceBadge value={axiom.confidence ?? 0} />
-                      <ApprovalBadge approved={axiom.approved} />
-                      <EvaluationWarningBadge show={axiom.evaluation_warning} />
-                    </div>
+                    <ConfidenceBadge value={axiom.confidence ?? 0} />
+                    <ApprovalBadge approved={axiom.approved} />
+                    <EvaluationWarningBadge show={axiom.evaluation_warning} />
                   </div>
 
+                  {/* Approve / Reject buttons */}
+                  <ApproveButtons axiom={axiom} onUpdate={handleApprovalUpdate} />
+                </div>
+
+                {/* Statement */}
+                <p
+                  style={{
+                    fontSize: "0.875rem",
+                    color: "var(--color-text)",
+                    margin: "0 0 0.375rem",
+                    lineHeight: 1.55,
+                  }}
+                >
+                  {axiom.statement}
+                </p>
+
+                {/* Justification */}
+                {axiom.justification && (
                   <p
                     style={{
-                      fontSize: "0.9375rem",
-                      color: "var(--color-text)",
-                      lineHeight: 1.55,
-                      margin: "0 0 0.5rem 0",
+                      fontSize: "0.8125rem",
+                      color: "var(--color-text-muted)",
+                      margin: "0 0 0.375rem",
+                      fontStyle: "italic",
+                      lineHeight: 1.5,
                     }}
                   >
-                    {axiom.statement}
+                    {axiom.justification}
                   </p>
+                )}
 
-                  {axiom.justification && (
-                    <p
-                      style={{
-                        fontSize: "0.825rem",
-                        color: "var(--color-text-muted)",
-                        lineHeight: 1.5,
-                        margin: "0 0 0.5rem 0",
-                      }}
-                    >
-                      {axiom.justification}
-                    </p>
-                  )}
-
-                  {axiom.eval_reason && (
-                    <p
-                      style={{
-                        fontSize: "0.775rem",
-                        color: axiom.evaluation_warning ? "var(--color-warning)" : "var(--color-text-faint)",
-                        fontStyle: "italic",
-                        margin: 0,
-                      }}
-                    >
-                      {axiom.evaluation_warning
-                        ? "Warning: Model evaluation failed, treating as approved"
-                        : `Eval: ${axiom.eval_reason}`}
-                    </p>
-                  )}
-
-                  <div
+                {/* Eval reason */}
+                {axiom.eval_reason && (
+                  <p
                     style={{
-                      marginTop: "0.75rem",
-                      paddingTop: "0.75rem",
-                      borderTop: "1px solid var(--color-divider)",
-                      fontSize: "0.7rem",
+                      fontSize: "0.775rem",
                       color: "var(--color-text-faint)",
-                      fontVariantNumeric: "tabular-nums",
+                      margin: "0 0 0.375rem",
                     }}
                   >
-                    {new Date(axiom.created_at).toLocaleString()}
-                    {axiom.persisted && (
-                      <span style={{ marginLeft: "0.75rem", color: "var(--color-success)" }}>● persisted</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                    {axiom.eval_reason}
+                  </p>
+                )}
 
-      <style>{`
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-      `}</style>
+                {/* Timestamp */}
+                <p
+                  style={{
+                    fontSize: "0.75rem",
+                    color: "var(--color-text-faint)",
+                    margin: 0,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {new Date(axiom.created_at).toLocaleString()}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </Shell>
   );
 }

@@ -46,6 +46,10 @@ class AxiomResponse(BaseModel):
     persisted: bool
 
 
+class ApproveRequest(BaseModel):
+    approved: bool
+
+
 _SYSTEM_PROPOSE = (
     "You are the Axiom Axiomatizer. Distill the input into 3 to 7 precise, distinct, falsifiable axioms. "
     "Return strict JSON only with one top-level key axioms. "
@@ -265,6 +269,29 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> list[AxiomRes
             await driver.close()
 
     return responses
+
+
+@router.patch("/axioms/{axiom_id}/approve")
+async def approve_axiom(axiom_id: str, body: ApproveRequest, request: Request) -> dict:
+    """Manually set the approved flag on a stored axiom."""
+    driver, should_close = await _get_driver(request)
+    cypher = """
+    MATCH (a:Axiom {id: $id})
+    SET a.approved = $approved,
+        a.eval_reason = $eval_reason
+    RETURN a.id AS id, a.approved AS approved
+    """
+    eval_reason = "Manually approved" if body.approved else "Manually rejected"
+    try:
+        async with driver.session() as session:
+            result = await session.run(cypher, id=axiom_id, approved=body.approved, eval_reason=eval_reason)
+            record = await result.single()
+            if record is None:
+                raise HTTPException(status_code=404, detail=f"Axiom {axiom_id!r} not found")
+            return {"id": record["id"], "approved": record["approved"]}
+    finally:
+        if should_close:
+            await driver.close()
 
 
 @router.get("/axioms")
