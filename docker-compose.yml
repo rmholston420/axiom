@@ -54,7 +54,7 @@ services:
           until curl -fsS http://axiom-ollama:11434/api/tags >/dev/null; do
             sleep 2
           done
-          OLLAMA_URL=http://axiom-ollama:11434 bash /workspace/scripts/pull-models.sh
+          OLLAMA_URL=http://axiom-ollama:11434 sh /workspace/scripts/pull-models.sh
 
   axiom-api:
     depends_on:
