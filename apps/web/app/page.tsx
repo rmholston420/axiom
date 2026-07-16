@@ -214,41 +214,75 @@ export default function DashboardPage() {
 
 
     es.onmessage = (e) => {
-        const data = e.data;
+      const data = e.data;
 
-        if (data === "[DONE]" || data === "\"[DONE]\"") {
-          es.close();
-          setTimeout(() => refreshJobs(), 400);
+      if (data === "[DONE]" || data === "\"[DONE]\"") {
+        es.close();
+        setTimeout(() => refreshJobs(), 400);
+        return;
+      }
+
+      const parsed = parseResearchStreamMessage(data);
+
+      if (parsed) {
+        setHasSeenEvent(true);
+
+        if (parsed.type === "event") {
+          const message = String(parsed.message ?? "").trim();
+          if (message) {
+            setEvents((prev) => [...prev, message]);
+          }
           return;
         }
 
-        const parsed = parseResearchStreamMessage(data);
+        if (parsed.type === "report") {
+          setLiveReport(String(parsed.content ?? ""));
+          return;
+        }
 
-        if (parsed) {
-          setHasSeenEvent(true);
+        if (parsed.type === "error") {
+          const message = String(parsed.message ?? "Unknown error");
+          setLiveError(message);
+          setEvents((prev) => [...prev, message]);
+          return;
+        }
 
-          if (parsed.type === "event") {
-            setEvents((prev) => [...prev, String(parsed.message ?? "")].filter(Boolean));
-            return;
+        if (parsed.type === "finding" && parsed.data) {
+          const finding = {
+            index: Number(parsed.data.index ?? 0),
+            sub_query: String(parsed.data.sub_query ?? ""),
+            summary: String(parsed.data.summary ?? ""),
+          };
+
+          setLiveFindings((prev) => [...prev, finding]);
+
+          const findingMessage = [
+            finding.index ? `Finding ${finding.index}:` : "Finding:",
+            finding.sub_query,
+            finding.summary,
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          if (findingMessage) {
+            setEvents((prev) => [...prev, findingMessage]);
           }
+          return;
+        }
 
-          if (parsed.type === "report") {
-            setLiveReport(String(parsed.content ?? ""));
-            return;
-          }
+        const fallback = String(data).trim();
+        if (fallback) {
+          setEvents((prev) => [...prev, fallback]);
+        }
+        return;
+      }
 
-          if (parsed.type === "error") {
-            setLiveError(String(parsed.message ?? "Unknown error"));
-            setEvents((prev) => [...prev, String(parsed.message ?? "Unknown error")]);
-            return;
-          }
-
-          if (parsed.type === "finding" && parsed.data) {
-            const finding = {
-              index: Number(parsed.data.index ?? 0),
-              sub_query: String(parsed.data.sub_query ?? ""),
-              summary: String(parsed.data.summary ?? ""),
-            };
+      const fallback = String(data).trim();
+      if (fallback) {
+        setHasSeenEvent(true);
+        setEvents((prev) => [...prev, fallback]);
+      }
+    };
             setLiveFindings((prev) => [...prev, finding]);
             setEvents((prev) => [
               ...prev,
