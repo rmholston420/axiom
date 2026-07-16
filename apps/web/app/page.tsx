@@ -209,7 +209,6 @@ export default function DashboardPage() {
     setHasSeenEvent(false);
     setStreamReport("");
     setStreamError("");
-    setLiveFindings([]);
 
     const es = new EventSource(`/api/jobs/${jobId}/stream`);
     sseRef.current = es;
@@ -258,8 +257,6 @@ export default function DashboardPage() {
             sub_query: String(parsed.data.sub_query ?? ""),
             summary: String(parsed.data.summary ?? ""),
           };
-
-          setLiveFindings((prev) => [...prev, finding]);
 
           const findingMessage = [
             finding.index ? `Finding ${finding.index}:` : "Finding:",
