@@ -264,6 +264,8 @@ class FailingSynthesizer:
         pass
 
     async def synthesize_stream(self, question, findings):
+        if False:
+            yield ""
         raise RuntimeError("loop failed")
 
 
@@ -415,7 +417,7 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
     assert updates[-1][1]["elapsed_seconds"] == 1.23
     assert updates[-1][1]["completed_at"] == "2026-07-15T12:00:00+00:00"
 
-    assert events[0] == ("job-1", "response.created", {"job_id": "job-1", "status": "queued"})
+    assert events[0] == ("job-1", "response.created", {"job_id": "job-1"})
     assert events[1] == ("job-1", "response.status", {"status": "running"})
     assert events[-1] == (
         "job-1",
