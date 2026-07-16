@@ -313,7 +313,26 @@ export default function GraphClient({
           <ForceGraph3D
             ref={fg3dRef}
             graphData={graphData}
-            linkCurvature={0.22}
+            linkCurvature={(link: ForceLinkObject) => {
+            const sourceId = getLinkEndpointId(link.source);
+            const targetId = getLinkEndpointId(link.target);
+            const relationship = getLinkRelationship(link);
+
+            const pair = [sourceId, targetId].sort().join("|");
+            let hash = 0;
+            for (let i = 0; i < pair.length; i += 1) {
+              hash = (hash * 31 + pair.charCodeAt(i)) >>> 0;
+            }
+
+            const base = relationship === "CONTRADICTS"
+              ? 0.42
+              : relationship === "MENTIONS" || relationship === "SUPPORTS"
+                ? 0.3
+                : 0.2;
+
+            const offset = ((hash % 5) - 2) * 0.05;
+            return Math.max(0.08, base + offset);
+          }}
             linkCurveRotation={0.35}
             nodeLabel={(node: GraphNodeDatum) => `${getNodeLabel(node)} (${getNodeType(node)})`}
             linkLabel={(link: ForceLinkObject) => getLinkRelationship(link)}
