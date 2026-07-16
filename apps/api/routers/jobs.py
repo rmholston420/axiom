@@ -29,6 +29,9 @@ class JobResponse(BaseModel):
     elapsed_seconds: float | None = None
     query_id: str = ""
     axiom_id: str = ""
+    wiki_page_id: str = ""
+    wiki_status: str = ""
+    wiki_error: str = ""
     report: str
     error: str
 
