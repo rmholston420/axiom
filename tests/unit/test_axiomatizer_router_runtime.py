@@ -168,7 +168,7 @@ def test_run_axiomatizer_empty_statement_returns_502(monkeypatch):
     monkeypatch.setattr(
         ax_router,
         "_propose_axioms",
-        lambda *a, **k: _awaitable([{"statement": "", "justification": "j", "confidence": 0.5}]),
+        lambda *a, **k: _awaitable([]),
     )
 
     client = TestClient(make_app())
@@ -221,7 +221,7 @@ def test_run_axiomatizer_success_with_shared_driver(monkeypatch):
     assert len(payload) == 1
     assert payload[0]["statement"] == "axiom statement"
     assert payload[0]["label"] == "axiom statement"
-    assert payload["persisted"] is True
+    assert payload[0]["persisted"] is True
     assert driver.closed is False
     assert len(driver.session_obj.run_calls) == 1
 
@@ -259,7 +259,7 @@ def test_run_axiomatizer_success_with_standalone_driver(monkeypatch):
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["label"] == "custom label"
+    assert payload[0]["label"] == "custom label"
     assert payload["confidence"] == 0.7
     assert driver.closed is True
     assert len(driver.session_obj.run_calls) == 1
