@@ -34,7 +34,7 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
 
-from neo4j import AsyncDriver
+from neo4j import AsyncDriver, AsyncGraphDatabase
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
@@ -640,3 +640,23 @@ async def sse_stream(
     finally:
         await pubsub.unsubscribe(_channel(job_id))
         await pubsub.aclose()
+
+async def _main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
+    driver = AsyncGraphDatabase.driver(
+        settings.axiom_neo4j_uri,
+        auth=(settings.axiom_neo4j_user, settings.axiom_neo4j_password),
+    )
+    valkey = ValkeyProvider()
+    worker = QueueWorker(driver=driver, valkey=valkey)
+    try:
+        await worker.run_forever()
+    finally:
+        worker.stop()
+        await valkey.aclose()
+        await driver.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(_main())
+
