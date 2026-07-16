@@ -1,5 +1,7 @@
 import asyncio
 import json
+import sys
+import types
 
 import pytest
 from redis.exceptions import ConnectionError, TimeoutError
@@ -231,6 +233,30 @@ async def _dummy_ensure_schema(driver):
     return None
 
 
+
+def install_process_stubs(monkeypatch):
+    planner_mod = types.ModuleType("axiom_research.planner")
+    planner_mod.Planner = DummyPlanner
+    retriever_mod = types.ModuleType("axiom_research.retriever")
+    retriever_mod.Retriever = DummyRetriever
+    extractor_mod = types.ModuleType("axiom_research.extractor")
+    extractor_mod.Extractor = DummyExtractor
+    synth_mod = types.ModuleType("axiom_research.synthesizer")
+    synth_mod.Synthesizer = DummySynthesizer
+    synth_mod.sanitize_redis_report = lambda text: text
+    repo_mod = types.ModuleType("axiom_graph.repository")
+    repo_mod.GraphRepository = DummyGraphRepository
+    schema_mod = types.ModuleType("axiom_graph.schema")
+    schema_mod.ensure_schema = _dummy_ensure_schema
+
+    monkeypatch.setitem(sys.modules, "axiom_research.planner", planner_mod)
+    monkeypatch.setitem(sys.modules, "axiom_research.retriever", retriever_mod)
+    monkeypatch.setitem(sys.modules, "axiom_research.extractor", extractor_mod)
+    monkeypatch.setitem(sys.modules, "axiom_research.synthesizer", synth_mod)
+    monkeypatch.setitem(sys.modules, "axiom_graph.repository", repo_mod)
+    monkeypatch.setitem(sys.modules, "axiom_graph.schema", schema_mod)
+
+
 @pytest.mark.unit
 def test_channel_formats_job_stream_channel():
     assert qw._channel("job-123") == "axiom:stream:job-123"
@@ -346,13 +372,7 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
     async def fake_get(job_id):
         return {"id": job_id, "question": "What is Axiom?"}
 
-    monkeypatch.setattr(qw, "Planner", DummyPlanner)
-    monkeypatch.setattr(qw, "Retriever", DummyRetriever)
-    monkeypatch.setattr(qw, "Extractor", DummyExtractor)
-    monkeypatch.setattr(qw, "Synthesizer", DummySynthesizer)
-    monkeypatch.setattr(qw, "GraphRepository", DummyGraphRepository)
-    if hasattr(qw, "ensure_schema"):
-        monkeypatch.setattr(qw, "ensure_schema", _dummy_ensure_schema)
+    install_process_stubs(monkeypatch)
     monkeypatch.setattr(qw, "ResearchLoop", SuccessLoop)
     worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
@@ -415,13 +435,7 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
     async def fake_get(job_id):
         return {"id": job_id, "question": "What is Axiom?"}
 
-    monkeypatch.setattr(qw, "Planner", DummyPlanner)
-    monkeypatch.setattr(qw, "Retriever", DummyRetriever)
-    monkeypatch.setattr(qw, "Extractor", DummyExtractor)
-    monkeypatch.setattr(qw, "Synthesizer", DummySynthesizer)
-    monkeypatch.setattr(qw, "GraphRepository", DummyGraphRepository)
-    if hasattr(qw, "ensure_schema"):
-        monkeypatch.setattr(qw, "ensure_schema", _dummy_ensure_schema)
+    install_process_stubs(monkeypatch)
     monkeypatch.setattr(qw, "ResearchLoop", FailureLoop)
     worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
