@@ -1,5 +1,6 @@
 import MarkdownRenderer from "@/components/MarkdownRenderer";
 import Shell from "@/components/Shell";
+import { API_BASE } from "@/lib/api";
 
 type WikiPagePayload = {
   page_id: string;
@@ -14,11 +15,16 @@ type WikiPagePayload = {
 
 async function fetchWikiPage(queryId: string): Promise<WikiPagePayload | null> {
   const pageId = `query:${queryId}`;
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_APP_ORIGIN ?? ""}/api/wiki/pages/${encodeURIComponent(pageId)}`,
-    { cache: "no-store" },
-  ).catch(() => null);
+  const base =
+    typeof window === "undefined"
+      ? (process.env.API_ORIGIN ?? "http://axiom-api:7200")
+      : API_BASE;
 
+  const url = base.startsWith("http")
+    ? `${base}/wiki/pages/${encodeURIComponent(pageId)}`
+    : `${base}/wiki/pages/${encodeURIComponent(pageId)}`;
+
+  const res = await fetch(url, { cache: "no-store" }).catch(() => null);
   if (!res || !res.ok) return null;
   return (await res.json()) as WikiPagePayload;
 }
@@ -26,9 +32,10 @@ async function fetchWikiPage(queryId: string): Promise<WikiPagePayload | null> {
 export default async function WikiQueryPage({
   params,
 }: {
-  params: { queryId: string };
+  params: Promise<{ queryId: string }>;
 }) {
-  const data = await fetchWikiPage(params.queryId);
+  const { queryId } = await params;
+  const data = await fetchWikiPage(queryId);
 
   return (
     <Shell>

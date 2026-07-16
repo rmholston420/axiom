@@ -35,6 +35,7 @@ export interface Job {
   started_at?: string;
   completed_at?: string;
   elapsed_seconds?: number | null;
+  query_id?: string;
   axiom_id?: string;
   report?: string;
   error?: string;
