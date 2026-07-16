@@ -1,9 +1,18 @@
 "use client";
 
+import Link from "next/link";
+
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Shell from "@/components/Shell";
-import { fetchAxioms, fetchGraph, type AxiomRecord, type GraphData } from "@/lib/api";
+import {
+  fetchAxioms,
+  fetchGraph,
+  fetchWikiPages,
+  type AxiomRecord,
+  type GraphData,
+  type WikiPageStub,
+} from "@/lib/api";
 import { RefreshCw, Loader2, Box, Orbit } from "lucide-react";
 import type { ForceGraphMethods as ForceGraph2DMethods } from "react-force-graph-2d";
 import type { ForceGraphMethods as ForceGraph3DMethods } from "react-force-graph-3d";
@@ -100,12 +109,15 @@ function toNodeId(value: unknown): string {
 export default function GraphClient({
   initialGraph,
   initialAxioms,
+  initialWikiPages,
 }: {
   initialGraph: GraphData;
   initialAxioms: AxiomRecord[];
+  initialWikiPages: WikiPageStub[];
 }) {
   const [data, setData] = useState<GraphData | null>(initialGraph);
   const [axioms, setAxioms] = useState<AxiomRecord[]>(initialAxioms);
+  const [wikiPages, setWikiPages] = useState<WikiPageStub[]>(initialWikiPages);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState<GraphMode>("2d");
@@ -118,9 +130,10 @@ export default function GraphClient({
     setLoading(true);
     setError("");
     try {
-      const [d, a] = await Promise.all([fetchGraph(), fetchAxioms(25)]);
+      const [d, a, w] = await Promise.all([fetchGraph(), fetchAxioms(25), fetchWikiPages(10)]);
       setData(d);
       setAxioms(a);
+      setWikiPages(w);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -182,6 +195,25 @@ export default function GraphClient({
     }
     return set;
   }, [graphData, hoverNodeId, selectedNodeId]);
+
+  const recentWikiItems = useMemo(
+    () =>
+      wikiPages.map((page) => {
+        const rawId = page.page_id.includes(":")
+          ? page.page_id.split(":").slice(1).join(":")
+          : page.page_id;
+
+        return {
+          ...page,
+          rawId,
+          wikiHref: page.page_id.startsWith("query:")
+            ? `/wiki/query/${encodeURIComponent(rawId)}`
+            : null,
+          graphNodeId: rawId,
+        };
+      }),
+    [wikiPages],
+  );
 
   const selectedNode = useMemo(() => {
     if (!graphData || !selectedNodeId) return null;
@@ -510,9 +542,77 @@ export default function GraphClient({
       </div>
 
       <div style={{ marginTop: "1rem", display: "grid", gap: "1rem", gridTemplateColumns: "minmax(0, 1.3fr) minmax(320px, 0.9fr)" }}>
-        <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
-          <div style={{ padding: "1rem 1rem 0.5rem", borderBottom: "1px solid var(--color-border)" }}>
-            <h2 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-text)" }}>Recent axioms</h2>
+        <div style={{ display: "grid", gap: "1rem" }}>
+          <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+            <div style={{ padding: "1rem 1rem 0.5rem", borderBottom: "1px solid var(--color-border)" }}>
+              <h2 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-text)" }}>Recent wiki pages</h2>
+              <p style={{ margin: "0.35rem 0 0", fontSize: "0.875rem", color: "var(--color-text-muted)" }}>
+                Latest generated wiki pages linked to query nodes.
+              </p>
+            </div>
+
+            {recentWikiItems.length === 0 ? (
+              <div style={{ padding: "1rem", color: "var(--color-text-muted)" }}>No wiki pages have been generated yet.</div>
+            ) : (
+              <div style={{ display: "grid", gap: "0.75rem", padding: "1rem" }}>
+                {recentWikiItems.map((page) => (
+                  <div
+                    key={page.page_id}
+                    style={{
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "var(--radius-md)",
+                      background: "var(--color-surface-2)",
+                      padding: "0.85rem",
+                      display: "grid",
+                      gap: "0.45rem",
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: "var(--color-text)", lineHeight: 1.3 }}>{page.title}</div>
+
+                    <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
+                      {page.page_id} · v{page.version}
+                    </div>
+
+                    <div style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
+                      {new Date(page.generated_at).toLocaleString()}
+                    </div>
+
+                    <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginTop: "0.15rem" }}>
+                      {page.wikiHref ? (
+                        <Link
+                          href={page.wikiHref}
+                          style={{ color: "var(--color-primary)", fontWeight: 600, textDecoration: "none" }}
+                        >
+                          Open wiki
+                        </Link>
+                      ) : (
+                        <span style={{ color: "var(--color-text-faint)" }}>Open wiki</span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedNodeId(page.graphNodeId)}
+                        style={{
+                          color: "var(--color-primary)",
+                          fontWeight: 600,
+                          padding: 0,
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Reveal in graph
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
+            <div style={{ padding: "1rem 1rem 0.5rem", borderBottom: "1px solid var(--color-border)" }}>
+              <h2 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-text)" }}>Recent axioms</h2>
             <p style={{ margin: "0.35rem 0 0", fontSize: "0.875rem", color: "var(--color-text-muted)" }}>
               Latest persisted axioms from the axiomatizer service.
             </p>
@@ -569,6 +669,7 @@ export default function GraphClient({
               </table>
             </div>
           )}
+          </div>
         </div>
 
         <div style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", overflow: "hidden" }}>

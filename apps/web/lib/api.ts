@@ -49,6 +49,16 @@ export interface GraphData {
   links: { source: string; target: string; type: string }[];
 }
 
+export interface WikiPageStub {
+  page_id: string;
+  page_type: string;
+  title: string;
+  slug: string;
+  version: number;
+  generated_at: string;
+}
+
+
 export interface AxiomRecord {
   id?: string;
   axiom_id?: string;
@@ -155,6 +165,12 @@ export async function createJob(query: string): Promise<Job> {
 export async function fetchGraph(): Promise<GraphData> {
   return getJson<GraphData>(`${API_BASE}/graph`);
 }
+
+export async function fetchWikiPages(limit = 10): Promise<WikiPageStub[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return getJson<WikiPageStub[]>(`${API_BASE}/wiki/pages?${params.toString()}`);
+}
+
 
 export async function fetchAxioms(limit = 25): Promise<AxiomRecord[]> {
   return getJson<AxiomRecord[]>(`${API_BASE}/axioms?limit=${encodeURIComponent(String(limit))}`);
