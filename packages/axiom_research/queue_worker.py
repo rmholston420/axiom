@@ -133,6 +133,7 @@ class JobStore:
             "started_at": "",
             "completed_at": "",
             "elapsed_seconds": None,
+            "query_id": "",
             "axiom_id": "",
             "report": "",
             "error": "",
@@ -318,6 +319,7 @@ class QueueWorker:
             await ensure_schema(self._driver)
             repo = GraphRepository(self._driver)
             query_id = await repo.create_query(question, job_id=job_id)
+            await self._store.update(job_id, query_id=query_id)
 
             # Plan sub-queries
             plan_started_at = _now_dt()
@@ -495,6 +497,7 @@ class QueueWorker:
                 job_id,
                 status=JobStatus.DONE.value,
                 report=full_report,
+                query_id=str(query_id),
                 elapsed_seconds=elapsed,
                 completed_at=completed_at_iso,
                 axiom_id=axiom_id,
