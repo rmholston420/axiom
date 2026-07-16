@@ -548,6 +548,92 @@ export default function DashboardPage() {
                   <span>Refs: {references.length}</span>
                 </div>
 
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "0.5rem",
+                    marginTop: "-0.25rem",
+                  }}
+                >
+                  <Link
+                    href="/graph"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      padding: "0.45rem 0.7rem",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-surface-2)",
+                      color: "var(--color-text)",
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Open graph
+                    <ChevronRight size={14} />
+                  </Link>
+                  <Link
+                    href="/axioms"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      padding: "0.45rem 0.7rem",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-surface-2)",
+                      color: "var(--color-text)",
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Open axioms
+                    <ChevronRight size={14} />
+                  </Link>
+                  <Link
+                    href="/council"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      padding: "0.45rem 0.7rem",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-surface-2)",
+                      color: "var(--color-text)",
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Open council
+                    <ChevronRight size={14} />
+                  </Link>
+                  <Link
+                    href="/settings"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      padding: "0.45rem 0.7rem",
+                      borderRadius: "var(--radius-md)",
+                      border: "1px solid var(--color-border)",
+                      background: "var(--color-surface-2)",
+                      color: "var(--color-text)",
+                      fontSize: "0.82rem",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Settings
+                    <ChevronRight size={14} />
+                  </Link>
+                </div>
+
                 {(events.length > 0 || activeJob?.status === "running" || activeJob?.status === "queued") && (
                   <div>
                     <h2
