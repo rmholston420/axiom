@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+
 from axiom_core.settings import settings
 from axiom_providers.ollama import OllamaProvider
 
@@ -46,54 +48,77 @@ def sanitize_redis_report(report: str) -> str:
     return "\n".join(cleaned)
 
 
+def _build_prompt(question: str, findings: list[RawFinding]) -> str:
+    """Shared prompt builder for both streaming and non-streaming paths."""
+    findings_blocks: list[str] = []
+    source_counter = 1
+
+    for i, finding in enumerate(findings, 1):
+        lines: list[str] = [
+            f"### Finding {i}: {finding.sub_query}",
+            "Summary:",
+            finding.summary,
+        ]
+
+        results = getattr(finding, "results", []) or []
+        if results:
+            lines.append("")
+            lines.append("Evidence:")
+            for result in results:
+                title = getattr(result, "title", "") or "Untitled source"
+                url = getattr(result, "url", "") or ""
+                snippet = getattr(result, "snippet", "") or ""
+                lines.append(f"[{source_counter}] {title}")
+                if url:
+                    lines.append(f"URL: {url}")
+                if snippet:
+                    lines.append(f"Snippet: {snippet}")
+                lines.append("")
+                source_counter += 1
+
+        findings_blocks.append("\n".join(lines).strip())
+
+    findings_text = "\n\n".join(findings_blocks) if findings_blocks else "No findings were gathered."
+
+    return (
+        f"Research question: {question}\n\n"
+        f"Findings and evidence:\n{findings_text}\n\n"
+        "Write the full research report in Markdown. Requirements:\n"
+        "1. Use clear section headings.\n"
+        "2. Cite every non-trivial factual claim with inline numeric citations.\n"
+        "3. Only cite sources provided in the evidence blocks above.\n"
+        "4. If the evidence is insufficient, say what is uncertain.\n"
+        "5. End with a '## Sources' section listing each cited source as '[n] Title — URL'."
+    )
+
+
 class Synthesizer:
     def __init__(self, ollama: OllamaProvider) -> None:
         self._ollama = ollama
 
     async def synthesize(self, question: str, findings: list[RawFinding]) -> str:
-        """Return a Markdown research report for *question*."""
-        findings_blocks: list[str] = []
-        source_counter = 1
-
-        for i, finding in enumerate(findings, 1):
-            lines: list[str] = [
-                f"### Finding {i}: {finding.sub_query}",
-                "Summary:",
-                finding.summary,
-            ]
-
-            results = getattr(finding, "results", []) or []
-            if results:
-                lines.append("")
-                lines.append("Evidence:")
-                for result in results:
-                    title = getattr(result, "title", "") or "Untitled source"
-                    url = getattr(result, "url", "") or ""
-                    snippet = getattr(result, "snippet", "") or ""
-                    lines.append(f"[{source_counter}] {title}")
-                    if url:
-                        lines.append(f"URL: {url}")
-                    if snippet:
-                        lines.append(f"Snippet: {snippet}")
-                    lines.append("")
-                    source_counter += 1
-
-            findings_blocks.append("\n".join(lines).strip())
-
-        findings_text = "\n\n".join(findings_blocks) if findings_blocks else "No findings were gathered."
-
-        prompt = (
-            f"Research question: {question}\n\n"
-            f"Findings and evidence:\n{findings_text}\n\n"
-            "Write the full research report in Markdown. Requirements:\n"
-            "1. Use clear section headings.\n"
-            "2. Cite every non-trivial factual claim with inline numeric citations.\n"
-            "3. Only cite sources provided in the evidence blocks above.\n"
-            "4. If the evidence is insufficient, say what is uncertain.\n"
-            "5. End with a '## Sources' section listing each cited source as '[n] Title — URL'."
-        )
+        """Return a complete Markdown research report for *question* (non-streaming)."""
+        prompt = _build_prompt(question, findings)
         return await self._ollama.generate(
             model=settings.axiom_model_synthesizer,
             prompt=prompt,
             system=_SYNTH_SYSTEM,
         )
+
+    async def synthesize_stream(
+        self,
+        question: str,
+        findings: list[RawFinding],
+    ) -> AsyncIterator[str]:
+        """Stream Markdown report token deltas for *question*.
+
+        Each yielded string is a raw text delta from the model — no wrapping.
+        Callers are responsible for accumulating the full text if needed.
+        """
+        prompt = _build_prompt(question, findings)
+        async for delta in self._ollama.generate_stream(
+            model=settings.axiom_model_synthesizer,
+            prompt=prompt,
+            system=_SYNTH_SYSTEM,
+        ):
+            yield delta

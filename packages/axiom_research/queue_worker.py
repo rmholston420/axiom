@@ -1,4 +1,22 @@
-"""Queue worker — pulls jobs from Valkey, runs ResearchLoop, emits SSE events."""
+"""Queue worker — pulls jobs from Valkey, runs ResearchLoop, emits SSE events.
+
+Semantic SSE event protocol (Perplexity-style)
+-----------------------------------------------
+Every event is a JSON object written to both the Redis Stream (durable) and
+Pub/Sub (live fan-out).  Each SSE frame carries an ``id:`` field so browsers
+track Last-Event-ID automatically and resume without duplicates.
+
+Lifecycle sequence per job::
+
+    response.created          — job accepted, id assigned
+    response.status           — status transitions (queued → running)
+    response.searching        — one event per sub-query retrieval
+    response.sources          — batch of sources found for a sub-query
+    response.output_text.delta     — incremental text token from the model
+    response.output_text.completed — full accumulated text (synthesis done)
+    response.completed        — terminal success event with metadata
+    error                     — terminal failure event
+"""
 
 from __future__ import annotations
 
@@ -31,9 +49,7 @@ QUEUE_KEY = "axiom:queue"
 EVENT_STREAM_KEY_PREFIX = "axiom:events"
 
 # Bounded retention: keep the last N entries per job stream.
-# Approximate trimming (MAXLEN ~) avoids expensive tree rebalancing on every
-# write while keeping the stream within a few entries of the target length.
-STREAM_MAXLEN: int = 500
+STREAM_MAXLEN: int = 2000
 
 
 def _channel(job_id: str) -> str:
@@ -101,16 +117,11 @@ class StreamObserver:
         """Return XINFO STREAM metadata for a single job stream.
 
         Returns None when the stream does not exist yet.
-        Fields included:
-          length         – current entry count
-          first_entry_id – oldest entry ID (encodes ms timestamp)
-          last_entry_id  – newest entry ID
-          max_deleted_entry_id – highest trimmed ID (useful for auditing)
         """
         key = _event_stream_key(job_id)
         try:
             info = await self._v.client.xinfo_stream(key)
-        except Exception:  # noqa: BLE001  — key may not exist
+        except Exception:  # noqa: BLE001
             return None
 
         return {
@@ -128,11 +139,7 @@ class StreamObserver:
         }
 
     async def stream_stats(self, job_ids: list[str]) -> list[dict[str, Any]]:
-        """Batch-fetch stream info for multiple jobs.
-
-        Skips jobs with no stream yet (returns partial list — only jobs that
-        have at least one event entry).
-        """
+        """Batch-fetch stream info for multiple jobs."""
         results = []
         for job_id in job_ids:
             info = await self.stream_info(job_id)
@@ -161,85 +168,176 @@ class QueueWorker:
     ) -> None:
         """Append the event to the per-job Redis Stream AND publish to Pub/Sub.
 
-        Writing to the Stream provides durable replay for late subscribers.
-        Publishing to Pub/Sub provides low-latency fan-out for live subscribers.
-
-        The stream is trimmed to STREAM_MAXLEN entries using approximate trimming
-        (MAXLEN ~) so Redis never accumulates unbounded history per job.
+        The stream is trimmed to STREAM_MAXLEN entries using approximate trimming.
         """
         payload = {"event": event, "data": data, "ts": _now()}
         msg = json.dumps(payload)
         stream_key = _event_stream_key(job_id)
 
-        # XADD with MAXLEN ~ keeps the stream bounded at write time.
-        # approximate=True maps to the "~" qualifier — Redis trims lazily at
-        # radix-tree node boundaries, which is much cheaper than exact trimming.
         await self._valkey.client.xadd(
             stream_key,
             {"payload": msg},
             maxlen=STREAM_MAXLEN,
             approximate=True,
         )
-
-        # Pub/Sub fan-out for live SSE subscribers
         await self._valkey.client.publish(_channel(job_id), msg)
 
-    async def _process(self, job_id: str) -> None:
+    async def _process(self, job_id: str) -> None:  # noqa: C901
+        """Run one job through the full pipeline, emitting semantic SSE events.
+
+        Event sequence:
+          response.created
+          response.status (running)
+          response.searching  x N sub-queries
+          response.sources    x N sub-queries
+          response.output_text.delta  x many (streaming tokens)
+          response.output_text.completed
+          response.completed
+        On failure: error
+        """
+        # --- response.created ---
+        await self._append_and_publish(
+            job_id,
+            "response.created",
+            {"job_id": job_id},
+        )
+
         await self._store.update(job_id, status=JobStatus.RUNNING.value)
-        await self._append_and_publish(job_id, "status", {"status": "running"})
+
+        # --- response.status ---
+        await self._append_and_publish(
+            job_id,
+            "response.status",
+            {"status": "running"},
+        )
+
         try:
             job = await self._store.get(job_id)
             question = job["question"]  # type: ignore[index]
 
-            await self._append_and_publish(
-                job_id, "event", {"message": "Queued job picked up by worker"}
-            )
-            await self._append_and_publish(
-                job_id, "event", {"message": "Planning research sub-queries"}
-            )
+            # ------------------------------------------------------------------
+            # Build a streaming-aware ResearchLoop by running the plan + retrieval
+            # steps manually so we can emit per-sub-query events, then stream
+            # the synthesis phase token-by-token.
+            # ------------------------------------------------------------------
+            from neo4j import AsyncDriver as _AD  # local import avoids circular
+            from axiom_graph.repository import GraphRepository
+            from axiom_graph.schema import ensure_schema
+            from axiom_providers.ollama import OllamaProvider
+            from axiom_providers.searxng import SearxngProvider
+            from axiom_research.extractor import Extractor
+            from axiom_research.models import RawFinding
+            from axiom_research.planner import Planner
+            from axiom_research.retriever import Retriever
+            from axiom_research.synthesizer import Synthesizer, sanitize_redis_report
 
-            loop = ResearchLoop(self._driver)
+            ollama = OllamaProvider()
+            searxng = SearxngProvider()
+            planner = Planner(ollama)
+            retriever = Retriever(searxng)
+            extractor = Extractor(ollama)
+            synthesizer = Synthesizer(ollama)
 
-            await self._append_and_publish(
-                job_id, "event", {"message": "Running retrieval and extraction"}
-            )
-            result = await loop.run(
-                question,
-                job_id=job_id,
-                breadth=settings.axiom_breadth,
-            )
+            await ensure_schema(self._driver)
+            repo = GraphRepository(self._driver)
+            query_id = await repo.create_query(question, job_id=job_id)
 
-            await self._append_and_publish(
-                job_id,
-                "event",
-                {"message": f"Collected {len(result.findings)} findings"},
-            )
-            for i, f in enumerate(result.findings, 1):
+            # Plan sub-queries
+            sub_queries = await planner.plan(question, breadth=settings.axiom_breadth)
+
+            findings: list[RawFinding] = []
+
+            for sq in sub_queries:
+                # --- response.searching ---
                 await self._append_and_publish(
                     job_id,
-                    "finding",
-                    {"index": i, "sub_query": f.sub_query, "summary": f.summary[:200]},
+                    "response.searching",
+                    {"query": sq.text},
                 )
 
+                results = await retriever.retrieve(sq.text)
+
+                # Upsert sources into graph
+                source_urls: list[str] = []
+                sources_payload: list[dict[str, str]] = []
+                for r in results:
+                    await repo.upsert_source(url=r.url, title=r.title)
+                    source_urls.append(r.url)
+                    sources_payload.append({"title": r.title or "", "url": r.url or ""})
+
+                # --- response.sources ---
+                await self._append_and_publish(
+                    job_id,
+                    "response.sources",
+                    {"query": sq.text, "sources": sources_payload},
+                )
+
+                summary = await extractor.extract(sq.text, results)
+
+                await repo.create_finding(
+                    query_id=query_id,
+                    sub_query=sq.text,
+                    summary=summary,
+                    source_urls=source_urls,
+                )
+
+                findings.append(
+                    RawFinding(
+                        sub_query=sq.text,
+                        summary=summary,
+                        source_urls=source_urls,
+                    )
+                )
+
+            # ------------------------------------------------------------------
+            # Streaming synthesis: proxy token deltas directly to SSE.
+            # ------------------------------------------------------------------
+            accumulated: list[str] = []
+
+            async for delta in synthesizer.synthesize_stream(question, findings):
+                accumulated.append(delta)
+                # --- response.output_text.delta ---
+                await self._append_and_publish(
+                    job_id,
+                    "response.output_text.delta",
+                    {"delta": delta},
+                )
+
+            full_report = sanitize_redis_report("".join(accumulated))
+
+            # --- response.output_text.completed ---
             await self._append_and_publish(
-                job_id, "event", {"message": "Synthesized final report"}
+                job_id,
+                "response.output_text.completed",
+                {"text": full_report},
             )
-            clean_report = sanitize_redis_report(result.report)
+
             await self._store.update(
                 job_id,
                 status=JobStatus.DONE.value,
-                report=clean_report,
+                report=full_report,
             )
+
+            # --- response.completed (terminal) ---
             await self._append_and_publish(
                 job_id,
-                "done",
-                {"status": "done", "report": clean_report},
+                "response.completed",
+                {
+                    "status": "done",
+                    "report": full_report,
+                    "finding_count": len(findings),
+                    "query_id": str(query_id),
+                },
             )
+
         except Exception as exc:  # noqa: BLE001
             log.exception("Job %s failed", job_id)
             await self._store.update(job_id, status=JobStatus.FAILED.value, error=str(exc))
+            # --- error (terminal) ---
             await self._append_and_publish(
-                job_id, "error", {"message": str(exc), "error": str(exc)}
+                job_id,
+                "error",
+                {"message": str(exc), "error": str(exc)},
             )
 
     async def run_forever(self) -> None:
@@ -275,65 +373,48 @@ async def sse_stream(
     """Yield Server-Sent Events for a specific job.
 
     Strategy:
-      1. Replay events from the Redis Stream.
-         - If last_id is given (SSE reconnect via Last-Event-ID header or
-           ?last_id query param), replay only events AFTER that ID so the
-           client does not receive duplicates.
-         - If last_id is absent, replay from the very beginning ("-").
-      2. If the terminal event (done/error) is in the replay, return immediately.
-      3. Otherwise subscribe to the Pub/Sub channel and forward live events.
-         Each live event is tagged with an SSE "id:" line so the browser
-         automatically tracks the cursor and sends Last-Event-ID on reconnect.
+      1. Replay events from the Redis Stream (with dedup via last_id).
+      2. If a terminal event (response.completed / error) is in the replay,
+         return immediately.
+      3. Otherwise subscribe to Pub/Sub and forward live events.
 
-    The last_id value must be a valid Redis Stream entry ID
-    (e.g. "1720000000000-0").  An invalid / unknown ID is safe — Redis XRANGE
-    with an unknown exclusive start simply returns events from that point on,
-    or nothing if the ID is beyond the latest entry.
+    Every SSE frame carries an ``id:`` line set to the Redis Stream entry ID
+    so browsers track Last-Event-ID and resume without duplicating chunks.
     """
     client = valkey.client
     stream_key = _event_stream_key(job_id)
 
-    # ------------------------------------------------------------------ #
-    # 1. Replay the durable Redis Stream                                  #
-    # ------------------------------------------------------------------ #
-    # XRANGE returns [(entry_id, {field: value}), ...] in insertion order.
-    # When last_id is provided, use exclusive start "(last_id" to skip the
-    # already-seen entry.  When absent, start from "-" (very beginning).
+    # 1. Replay durable Redis Stream
     start = f"({last_id}" if last_id else "-"
     history: list[tuple[str, dict[str, str]]] = await client.xrange(
         stream_key, start, "+"
     )
 
+    TERMINAL_EVENTS = {"response.completed", "error"}
+
     for entry_id, fields in history:
         raw = fields.get("payload", "")
         if not raw:
             continue
-        # Emit the Redis Stream entry ID as the SSE event id so browsers can
-        # send it back as Last-Event-ID on reconnect.
         yield f"id: {entry_id}\ndata: {raw}\n\n"
         try:
             parsed = json.loads(raw)
-            if parsed.get("event") in ("done", "error"):
-                # Job is already finished — no need to tail Pub/Sub.
+            if parsed.get("event") in TERMINAL_EVENTS:
                 return
         except json.JSONDecodeError:
             pass
 
-    # ------------------------------------------------------------------ #
-    # 2. If stream is empty (and no last_id), seed an initial status      #
-    # ------------------------------------------------------------------ #
+    # 2. Seed an initial status event for late subscribers with no history
     if not history and not last_id:
         job = await JobStore(valkey).get(job_id)
         if job:
             status = job["status"]
-            payload = {"event": "status", "data": {"status": status}}
+            payload = {"event": "response.status", "data": {"status": status}}
             yield f"data: {json.dumps(payload)}\n\n"
             if status in (JobStatus.DONE.value, JobStatus.FAILED.value):
                 return
 
-    # ------------------------------------------------------------------ #
-    # 3. Tail live Pub/Sub messages for events not yet in the Stream      #
-    # ------------------------------------------------------------------ #
+    # 3. Tail live Pub/Sub for events not yet in the Stream
     pubsub = client.pubsub()
     await pubsub.subscribe(_channel(job_id))
     try:
@@ -344,7 +425,7 @@ async def sse_stream(
             yield f"data: {data_str}\n\n"
             try:
                 parsed = json.loads(data_str)
-                if parsed.get("event") in ("done", "error"):
+                if parsed.get("event") in TERMINAL_EVENTS:
                     break
             except json.JSONDecodeError:
                 pass
