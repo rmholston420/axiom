@@ -256,10 +256,7 @@ export default function DashboardPage() {
   );
 
   const liveReferenceCount = stream.sources.length || references.length;
-  const displayAxiomCreated =
-    stream.phase === "done"
-      ? Boolean(activeJob?.axiom_id)
-      : Boolean(activeJob?.axiom_id);
+  const displayAxiomCreated = Boolean(activeJob?.axiom_id);
 
   return (
     <Shell>

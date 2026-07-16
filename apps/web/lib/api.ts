@@ -32,6 +32,10 @@ export interface Job {
   status: JobStatus;
   created_at: string;
   updated_at: string;
+  started_at?: string;
+  completed_at?: string;
+  elapsed_seconds?: number | null;
+  axiom_id?: string;
   report?: string;
   error?: string;
   findings?: Finding[];
