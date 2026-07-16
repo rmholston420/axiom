@@ -14,6 +14,8 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 class JobCreate(BaseModel):
     question: str
+    breadth: int | None = None
+    depth: int | None = None
 
 
 class JobResponse(BaseModel):
@@ -37,7 +39,7 @@ async def create_job(
     store: JobStore = Depends(get_job_store),
 ):
     """Enqueue a new research job."""
-    job_id = await worker.enqueue(body.question)
+    job_id = await worker.enqueue(body.question, breadth=body.breadth, depth=body.depth)
     job = await store.get(job_id)
     return job
 

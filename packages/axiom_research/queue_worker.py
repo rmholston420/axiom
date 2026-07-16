@@ -122,7 +122,7 @@ class JobStore:
     def __init__(self, valkey: ValkeyProvider) -> None:
         self._v = valkey
 
-    async def create(self, question: str) -> str:
+    async def create(self, question: str, breadth: int | None = None, depth: int | None = None) -> str:
         job_id = str(uuid.uuid4())
         payload = {
             "id": job_id,
@@ -136,6 +136,8 @@ class JobStore:
             "axiom_id": "",
             "report": "",
             "error": "",
+            "breadth": breadth,
+            "depth": depth,
         }
         await self._v.client.hset(JOBS_KEY, job_id, json.dumps(payload))
         return job_id
@@ -213,9 +215,9 @@ class QueueWorker:
         self._store = JobStore(valkey)
         self._running = False
 
-    async def enqueue(self, question: str) -> str:
+    async def enqueue(self, question: str, breadth: int | None = None, depth: int | None = None) -> str:
         """Add a job to the queue and return its ID."""
-        job_id = await self._store.create(question)
+        job_id = await self._store.create(question, breadth=breadth, depth=depth)
         await self._valkey.client.rpush(QUEUE_KEY, job_id)
         return job_id
 
@@ -277,6 +279,8 @@ class QueueWorker:
         try:
             job = await self._store.get(job_id)
             question = job["question"]  # type: ignore[index]
+            breadth = int(job.get("breadth") or settings.axiom_breadth)
+            depth = int(job.get("depth") or 1)
 
             # ------------------------------------------------------------------
             # Build a streaming-aware ResearchLoop by running the plan + retrieval
@@ -306,7 +310,7 @@ class QueueWorker:
             query_id = await repo.create_query(question, job_id=job_id)
 
             # Plan sub-queries
-            sub_queries = await planner.plan(question, breadth=settings.axiom_breadth)
+            sub_queries = await planner.plan(question, breadth=breadth)
 
             findings: list[RawFinding] = []
 
