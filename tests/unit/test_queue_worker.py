@@ -268,7 +268,7 @@ async def test_append_and_publish_emits_json_event(monkeypatch):
 @pytest.mark.asyncio
 async def test_process_success_updates_store_and_publishes(monkeypatch):
     client = DummyClient()
-    worker = qw.QueueWorker(driver=object(), valkey=DummyValkey(client))
+    worker = qw.QueueWorker(driver=DummySchemaDriver(), valkey=DummyValkey(client))
 
     events = []
     updates = []
@@ -330,7 +330,7 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
 @pytest.mark.asyncio
 async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
     client = DummyClient()
-    worker = qw.QueueWorker(driver=object(), valkey=DummyValkey(client))
+    worker = qw.QueueWorker(driver=DummySchemaDriver(), valkey=DummyValkey(client))
 
     events = []
     updates = []
