@@ -167,6 +167,70 @@ class DummySchemaDriver:
         return DummySchemaSession()
 
 
+
+
+class DummySubQuery:
+    def __init__(self, text):
+        self.text = text
+
+
+class DummyPlanner:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def plan(self, question, breadth):
+        return [DummySubQuery("sub-1"), DummySubQuery("sub-2")]
+
+
+class DummyResultItem:
+    def __init__(self, url, title):
+        self.url = url
+        self.title = title
+
+
+class DummyRetriever:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def retrieve(self, text):
+        return [DummyResultItem(f"https://example.com/{text}", f"title for {text}")]
+
+
+class DummyExtractor:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def extract(self, text, results):
+        return f"summary for {text}"
+
+
+class DummySynthesizer:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def synthesize_stream(self, question, findings):
+        yield "report "
+        yield f"for {question}"
+
+
+class DummyGraphRepository:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def create_query(self, question, job_id=None):
+        return job_id or "query-1"
+
+    async def upsert_source(self, url, title):
+        return None
+
+    async def create_finding(self, query_id, sub_query, summary, source_urls):
+        return None
+
+
+async def _dummy_ensure_schema(driver):
+    return None
+
+
 @pytest.mark.unit
 def test_channel_formats_job_stream_channel():
     assert qw._channel("job-123") == "axiom:stream:job-123"
@@ -282,6 +346,13 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
     async def fake_get(job_id):
         return {"id": job_id, "question": "What is Axiom?"}
 
+    monkeypatch.setattr(qw, "Planner", DummyPlanner)
+    monkeypatch.setattr(qw, "Retriever", DummyRetriever)
+    monkeypatch.setattr(qw, "Extractor", DummyExtractor)
+    monkeypatch.setattr(qw, "Synthesizer", DummySynthesizer)
+    monkeypatch.setattr(qw, "GraphRepository", DummyGraphRepository)
+    if hasattr(qw, "ensure_schema"):
+        monkeypatch.setattr(qw, "ensure_schema", _dummy_ensure_schema)
     monkeypatch.setattr(qw, "ResearchLoop", SuccessLoop)
     worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
@@ -344,6 +415,13 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
     async def fake_get(job_id):
         return {"id": job_id, "question": "What is Axiom?"}
 
+    monkeypatch.setattr(qw, "Planner", DummyPlanner)
+    monkeypatch.setattr(qw, "Retriever", DummyRetriever)
+    monkeypatch.setattr(qw, "Extractor", DummyExtractor)
+    monkeypatch.setattr(qw, "Synthesizer", DummySynthesizer)
+    monkeypatch.setattr(qw, "GraphRepository", DummyGraphRepository)
+    if hasattr(qw, "ensure_schema"):
+        monkeypatch.setattr(qw, "ensure_schema", _dummy_ensure_schema)
     monkeypatch.setattr(qw, "ResearchLoop", FailureLoop)
     worker._append_and_publish = fake_append_and_publish
     worker._store.update = fake_update
