@@ -364,7 +364,7 @@ export default function GraphClient({
            nodeThreeObject={(node: GraphNodeDatum) => {
              const id = String(node.id);
              const isFocused = hoverNodeId === id || selectedNodeId === id;
-             if (!isFocused) return undefined;
+             if (!isFocused) return new THREE.Object3D();
 
              const haloGeometry = new THREE.SphereGeometry(1.35, 16, 16);
              const haloMaterial = new THREE.MeshBasicMaterial({
