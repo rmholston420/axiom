@@ -225,6 +225,62 @@ class WikiGenerator:
     # Section builders
     # ------------------------------------------------------------------
 
+
+    def _build_query_sections_fallback(
+        self,
+        topic: str,
+        findings: list[dict],
+        sources: list[dict],
+    ) -> list[WikiSection]:
+        source_urls = [s.get("url", "") for s in sources if s.get("url")]
+
+        finding_texts = []
+        for f in findings:
+            if not isinstance(f, dict):
+                continue
+            sub_query = str(f.get("sub_query", "")).strip()
+            summary = str(f.get("summary", "")).strip()
+            if summary and sub_query:
+                finding_texts.append(f"{sub_query}: {summary}")
+            elif summary:
+                finding_texts.append(summary)
+
+        overview = (
+            finding_texts[0]
+            if finding_texts
+            else f"This topic page exists for '{topic}', but grounded findings have not yet been extracted."
+        )
+
+        key_findings = "\n\n".join(finding_texts[:5]).strip()
+        if not key_findings:
+            key_findings = "No extracted findings are available yet."
+
+        open_questions = []
+        if not finding_texts:
+            open_questions.append("What primary evidence should be added for this topic?")
+        if source_urls:
+            open_questions.append("Which cited sources best define or challenge this topic?")
+        else:
+            open_questions.append("Which sources should be attached next to ground this topic page?")
+
+        return [
+            WikiSection(
+                heading="Overview",
+                body=overview,
+                citations=source_urls[:5],
+            ),
+            WikiSection(
+                heading="Key Findings",
+                body=key_findings,
+                citations=source_urls[:10],
+            ),
+            WikiSection(
+                heading="Open Questions",
+                body="\n\n".join(open_questions),
+                citations=source_urls[:5],
+            ),
+        ]
+
     async def _build_query_sections(
         self,
         topic: str,
@@ -247,7 +303,37 @@ class WikiGenerator:
             f"Use plain prose only. No bullet lists. No references section."
         )
         raw = await self._ollama_generate(prompt)
-        return self._parse_sections(raw, source_urls)
+        sections = self._parse_sections(raw, source_urls)
+        joined = "\n\n".join(
+            s.body for s in sections if getattr(s, "body", None)
+        ).strip().lower()
+
+        refusal_markers = [
+            "i cannot provide information",
+            "i can't provide information",
+            "i do not have any evidence",
+            "there is no available evidence to write about it",
+            "can i help you with something else",
+            "please let me know how i can assist you",
+        ]
+        weak_markers = [
+            "the evidence is limited",
+            "limited evidence",
+            "no available evidence",
+            "no specific studies directly addressing",
+            "remain unclear",
+            "more studies are needed",
+            "subject of investigation",
+        ]
+
+        if (
+            not joined
+            or any(marker in joined for marker in refusal_markers)
+            or sum(marker in joined for marker in weak_markers) >= 2
+        ):
+            return self._build_query_sections_fallback(topic, findings, sources)
+
+        return sections
 
     async def _build_axiom_sections(
         self,
