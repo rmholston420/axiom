@@ -23,6 +23,25 @@ from axiom_wiki.wiki_models import WikiPage, WikiPageType, WikiSection
 
 logger = logging.getLogger(__name__)
 
+
+def _sanitize_model_output(raw: str) -> str:
+    banned_patterns = [
+        r"(?im)^references:\s*$",
+        r"(?im)^bibliography:\s*$",
+        r"(?im)^works cited:\s*$",
+        r"\bJournal of [A-Z]",
+        r"\bProceedings of ",
+        r"\bSnow Lion Publications\b",
+        r"\bHarperCollins\b",
+        r"\bet al\.\b",
+        r"\([12][0-9]{3}\)",
+    ]
+    for pattern in banned_patterns:
+        if re.search(pattern, raw):
+            raise ValueError(f"Generated output contains forbidden fabricated-reference pattern: {pattern}")
+    return raw.strip()
+
+
 # ---------------------------------------------------------------------------
 # Cypher helpers
 # ---------------------------------------------------------------------------
@@ -216,12 +235,15 @@ class WikiGenerator:
             f"- {f.get('sub_query', '')}: {f.get('summary', '')}" for f in findings
         )
         prompt = (
-            f"You are writing an encyclopedia article.\n"
+            f"You are writing an evidence-grounded encyclopedia article.\n"
             f"Topic: {topic}\n\n"
             f"Evidence from research findings:\n{findings_text}\n\n"
-            f"Write three wiki sections: Overview, Key Findings, and Open Questions.\n"
-            f"Each section: a heading line starting with ##, then 2-4 sentences.\n"
-            f"Be factual, cite evidence, use plain prose. No bullet lists."
+            f"Write exactly three wiki sections: Overview, Key Findings, and Open Questions.\n"
+            f"Each section must begin with ## and contain 2-4 sentences.\n"
+            f"Use ONLY the evidence provided above. Do NOT use outside knowledge.\n"
+            f"Do NOT invent books, papers, authors, journals, publishers, dates, or references.\n"
+            f"If the evidence is insufficient, explicitly say the evidence is limited.\n"
+            f"Use plain prose only. No bullet lists. No references section."
         )
         raw = await self._ollama_generate(prompt)
         return self._parse_sections(raw, source_urls)
@@ -235,15 +257,19 @@ class WikiGenerator:
         source_urls = [s.get("url", "") for s in sources if s.get("url")]
         findings_text = "\n".join(f"- {f.get('summary', '')}" for f in findings[:10])
         prompt = (
-            f"You are writing an encyclopedia article about an axiom.\n"
+            f"You are writing an evidence-grounded encyclopedia article about an axiom.\n"
             f"Axiom label: {axiom.get('label')}\n"
             f"Statement: {axiom.get('statement')}\n"
             f"Justification: {axiom.get('justification')}\n"
             f"Confidence: {axiom.get('confidence')}\n\n"
             f"Supporting evidence:\n{findings_text}\n\n"
-            f"Write four wiki sections: Statement, Justification, Supporting Evidence, "
+            f"Write exactly four wiki sections: Statement, Justification, Supporting Evidence, "
             f"Contradictions and Open Questions.\n"
-            f"Each section: a heading line starting with ##, then 2-4 sentences."
+            f"Each section must begin with ## and contain 2-4 sentences.\n"
+            f"Use ONLY the evidence provided above. Do NOT use outside knowledge.\n"
+            f"Do NOT invent books, papers, authors, journals, publishers, dates, or references.\n"
+            f"If the evidence is insufficient, explicitly say the evidence is limited.\n"
+            f"No bullet lists. No references section."
         )
         raw = await self._ollama_generate(prompt)
         return self._parse_sections(raw, source_urls)
@@ -255,12 +281,16 @@ class WikiGenerator:
     ) -> list[WikiSection]:
         findings_text = "\n".join(f"- {f.get('summary', '')}" for f in findings[:10])
         prompt = (
-            f"You are writing an encyclopedia article about a source document.\n"
+            f"You are writing an evidence-grounded encyclopedia article about a source document.\n"
             f"URL: {source.get('url')}\n"
             f"Title: {source.get('title', 'Unknown')}\n\n"
             f"This source was cited in the following research findings:\n{findings_text}\n\n"
-            f"Write three wiki sections: About This Source, Key Contributions, Limitations.\n"
-            f"Each section: a heading line starting with ##, then 2-4 sentences."
+            f"Write exactly three wiki sections: About This Source, Key Contributions, Limitations.\n"
+            f"Each section must begin with ## and contain 2-4 sentences.\n"
+            f"Use ONLY the evidence provided above. Do NOT use outside knowledge.\n"
+            f"Do NOT invent books, papers, authors, journals, publishers, dates, or references.\n"
+            f"If the evidence is insufficient, explicitly say the evidence is limited.\n"
+            f"No bullet lists. No references section."
         )
         raw = await self._ollama_generate(prompt)
         return self._parse_sections(raw, [source.get("url", "")])
@@ -389,6 +419,7 @@ class WikiGenerator:
         Expects sections headed by lines beginning with '## '.
         Falls back to a single section if no headings found.
         """
+        raw = _sanitize_model_output(raw)
         sections: list[WikiSection] = []
         current_heading = "Overview"
         current_lines: list[str] = []
