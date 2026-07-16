@@ -31,6 +31,13 @@ export type ResearchStreamEvent =
       data: {
         status: string;
         report: string;
+        finding_count: number;
+        query_id: string;
+        elapsed_seconds?: number | null;
+        started_at?: string;
+        completed_at?: string;
+        status: string;
+        report: string;
         finding_count?: number;
         query_id?: string;
       };
