@@ -28,9 +28,16 @@ type LiveFinding = {
   summary: string;
 };
 
+type HealthService = {
+  name: string;
+  ok?: boolean;
+  detail?: string;
+  status?: string;
+};
+
 type HealthState = {
   status?: string;
-  services?: Record<string, string | { status?: string }>;
+  services?: HealthService[];
 };
 
 const statusIcon: Record<string, React.ReactNode> = {
@@ -313,13 +320,12 @@ export default function DashboardPage() {
                     : "var(--color-warning)",
             },
             ...["ollama", "searxng", "neo4j", "valkey"].map((name) => {
-              const raw = health?.services?.[name];
-              const value =
-                typeof raw === "string"
-                  ? raw
-                  : typeof raw === "object" && raw
-                    ? raw.status ?? "unknown"
-                    : "unknown";
+              const raw = health?.services?.find((service) => service.name === name);
+            const value =
+              raw?.status ??
+              (typeof raw?.ok === "boolean"
+                ? (raw.ok ? "healthy" : "unhealthy")
+                : "unknown");
               return {
                 label: name,
                 value,
