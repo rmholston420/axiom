@@ -326,7 +326,6 @@ export default function GraphClient({
 
               // Only draw labels when zoomed in enough to avoid clutter.
               // Source labels are stricter: only show them when focused.
-              const nodeType = String(node.type ?? "");
               const showLabel =
                 nodeType === "Source"
                   ? isFocused
