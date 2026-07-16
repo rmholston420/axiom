@@ -427,6 +427,48 @@ export default function AxiomsPage() {
           </div>
         </div>
 
+        {/* Stats bar */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: "0.75rem",
+            marginBottom: "1.25rem",
+          }}
+        >
+          {[
+            { label: "Total", value: visibleAxioms.length, color: "var(--color-primary)" },
+            { label: "Approved", value: visibleAxioms.filter((a) => a.approved === true).length, color: "var(--color-success)" },
+            { label: "Pending", value: visibleAxioms.filter((a) => a.approved !== true).length, color: "var(--color-text-muted)" },
+            { label: "Warnings", value: warningCount, color: "var(--color-warning)" },
+            {
+              label: "Avg Confidence",
+              value:
+                visibleAxioms.length > 0
+                  ? Math.round((visibleAxioms.reduce((s, a) => s + (a.confidence ?? 0), 0) / visibleAxioms.length) * 100) + "%"
+                  : "—",
+              color: "var(--color-warning)",
+            },
+          ].map(({ label, value, color }) => (
+            <div
+              key={label}
+              style={{
+                padding: "0.9rem 1rem",
+                background: "var(--color-surface)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-lg)",
+              }}
+            >
+              <div style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {label}
+              </div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, color, marginTop: "0.25rem", fontVariantNumeric: "tabular-nums" }}>
+                {value}
+              </div>
+            </div>
+          ))}
+        </div>
+
         {/* Error */}
         {error && (
           <div
