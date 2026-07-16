@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
 OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 
