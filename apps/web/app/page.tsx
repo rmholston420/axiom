@@ -251,6 +251,26 @@ export default function DashboardPage() {
           return;
         }
 
+        if (parsed.type === "status") {
+          const statusData =
+            parsed.data && typeof parsed.data === "object"
+              ? (parsed.data as Record<string, unknown>)
+              : null;
+
+          const status =
+            String(
+              statusData?.["status"] ??
+                parsed.message ??
+                "running",
+            ).trim() || "running";
+
+          const message = `Status: ${status}`;
+          setEvents((prev) =>
+            prev[prev.length - 1] === message ? prev : [...prev, message],
+          );
+          return;
+        }
+
         if (parsed.type === "finding" && parsed.data) {
           const findingData = parsed.data as Record<string, unknown>;
           const finding = {
