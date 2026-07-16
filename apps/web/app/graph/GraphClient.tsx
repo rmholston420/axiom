@@ -286,29 +286,60 @@ export default function GraphClient({
             onNodeClick={(node: GraphNodeDatum) => setSelectedNodeId(node?.id != null ? String(node.id) : null)}
             nodeCanvasObject={(node: GraphNodeDatum, ctx: CanvasRenderingContext2D, globalScale: number) => {
               const nodeId = String(node.id ?? "");
-            const isActive = neighborIds.size === 0 || neighborIds.has(nodeId);
-            const color = nodeColorMap[String(node.type ?? "")] ?? "#888";
-            const isFocused = hoverNodeId === nodeId || selectedNodeId === nodeId;
-            if (node.x == null || node.y == null) return;
-            const fontSize = Math.max(10, 12 / globalScale);
-           const radius = isFocused ? (isActive ? 9 : 7.5) : (isActive ? 7 : 5.5);
+              const isActive = neighborIds.size === 0 || neighborIds.has(nodeId);
+              const color = nodeColorMap[String(node.type ?? "")] ?? "#888";
+              const isFocused = hoverNodeId === nodeId || selectedNodeId === nodeId;
+              if (node.x == null || node.y == null) return;
 
-           if (isFocused) {
-             const haloRadius = radius + 5;
-             ctx.beginPath();
-             ctx.arc(node.x, node.y, haloRadius, 0, 2 * Math.PI, false);
-             ctx.strokeStyle = "rgba(248, 250, 252, 0.75)";
-             ctx.lineWidth = 2;
-             ctx.stroke();
-           }
+              const radius = isFocused ? (isActive ? 9 : 7.5) : (isActive ? 7 : 5.5);
 
-           ctx.beginPath();
-            ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+              // Halo for focused node
+              if (isFocused) {
+                const haloRadius = radius + 5;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, haloRadius, 0, 2 * Math.PI, false);
+                ctx.strokeStyle = "rgba(248, 250, 252, 0.75)";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+              }
+
+              // Node circle
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
               ctx.fillStyle = isActive ? color : "rgba(148, 163, 184, 0.35)";
               ctx.fill();
+
+              // Only draw labels when zoomed in enough to avoid clutter
+              // Threshold: globalScale >= 1.2 shows all active nodes;
+              // focused nodes always show their label regardless of zoom.
+              const showLabel = isFocused || globalScale >= 1.2;
+              if (!showLabel) return;
+
+              const label = String(node.label ?? node.id ?? "node");
+              const fontSize = Math.max(10, 12 / globalScale);
               ctx.font = `${fontSize}px sans-serif`;
+
+              const textX = (node.x ?? 0) + radius + 4;
+              const textY = (node.y ?? 0) + fontSize * 0.35;
+              const textWidth = ctx.measureText(label).width;
+              const padH = 3;
+              const padV = 2;
+
+              // Semi-transparent pill background so labels don't bleed into the graph
+              ctx.fillStyle = "rgba(15, 18, 24, 0.72)";
+              ctx.beginPath();
+              ctx.roundRect(
+                textX - padH,
+                textY - fontSize * 0.75 - padV,
+                textWidth + padH * 2,
+                fontSize + padV * 2,
+                3,
+              );
+              ctx.fill();
+
+              // Label text
               ctx.fillStyle = isActive ? "#e5e7eb" : "rgba(148, 163, 184, 0.6)";
-              ctx.fillText(String(node.label ?? node.id ?? "node"), (node.x ?? 0) + 10, (node.y ?? 0) + 4);
+              ctx.fillText(label, textX, textY);
             }}
           linkColor={(link: ForceLinkObject) => {
             const relationship = getLinkRelationship(link);
