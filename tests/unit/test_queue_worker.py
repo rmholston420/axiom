@@ -383,6 +383,7 @@ async def test_process_success_updates_store_and_publishes(monkeypatch):
 
     class DummySettings:
         axiom_breadth = 4
+        axiom_axiomatizer_enabled = False
 
     monkeypatch.setattr(qw, "settings", DummySettings())
 
@@ -446,6 +447,7 @@ async def test_process_failure_updates_store_and_publishes_error(monkeypatch):
 
     class DummySettings:
         axiom_breadth = 4
+        axiom_axiomatizer_enabled = False
 
     monkeypatch.setattr(qw, "settings", DummySettings())
 
