@@ -96,14 +96,17 @@ export function useResearchStream(
 
   useEffect(() => {
     if (!jobId) {
-      setState(INITIAL_STATE);
+      // Use a ref-backed reset to avoid synchronous setState inside effect body
+      fullText.current = "";
+      pendingBuffer.current = "";
+      setTimeout(() => setState(INITIAL_STATE), 0);
       return;
     }
 
     // Reset for the new job.
-    setState(INITIAL_STATE);
     fullText.current = "";
     pendingBuffer.current = "";
+    setTimeout(() => setState(INITIAL_STATE), 0);
 
     const url = `${apiBase}/api/jobs/${jobId}/stream`;
     const es = new EventSource(url);
@@ -120,7 +123,6 @@ export function useResearchStream(
           break;
 
         case "response.status":
-          // Only update phase if not already further along.
           setState((prev) =>
             prev.phase === "idle" || prev.phase === "created"
               ? { ...prev, phase: "created" }
@@ -128,16 +130,19 @@ export function useResearchStream(
           );
           break;
 
-        case "response.searching":
+        case "response.searching": {
+          const q = typeof parsed.data.query === "string" ? parsed.data.query : null;
           setState((prev) => ({
             ...prev,
-            phase: prev.phase === "idle" ? "searching" : prev.phase,
-            currentQuery: parsed.data.query,
+            phase: prev.phase === "idle" || prev.phase === "created" ? "searching" : prev.phase,
+            currentQuery: q,
           }));
           break;
+        }
 
         case "response.sources": {
-          const incoming = parsed.data.sources ?? [];
+          const raw = parsed.data.sources;
+          const incoming: SourceItem[] = Array.isArray(raw) ? (raw as SourceItem[]) : [];
           setState((prev) => ({
             ...prev,
             sources: dedupeByUrl([...prev.sources, ...incoming]),
@@ -145,44 +150,48 @@ export function useResearchStream(
           break;
         }
 
-        case "response.output_text.delta":
-          // Accumulate in buffer — flushed by the interval tick.
-          pendingBuffer.current += parsed.data.delta;
+        case "response.output_text.delta": {
+          const delta = typeof parsed.data.delta === "string" ? parsed.data.delta : "";
+          pendingBuffer.current += delta;
           break;
+        }
 
-        case "response.output_text.completed":
-          // Force-flush everything so the final state is exactly right.
+        case "response.output_text.completed": {
+          const text = typeof parsed.data.text === "string" ? parsed.data.text : "";
           stopFlush();
-          fullText.current = parsed.data.text;
+          fullText.current = text;
           pendingBuffer.current = "";
           setState((prev) => ({ ...prev, text: fullText.current, phase: "generating" }));
           break;
+        }
 
-        case "response.completed":
+        case "response.completed": {
           stopFlush();
-          // Use the authoritative report from the completed event if available.
-          if (parsed.data.report) {
-            fullText.current = parsed.data.report;
-          }
+          const rep = typeof parsed.data.report === "string" ? parsed.data.report : "";
+          if (rep) fullText.current = rep;
+          const fc = typeof parsed.data.finding_count === "number" ? parsed.data.finding_count : null;
           setState((prev) => ({
             ...prev,
             text: fullText.current,
             phase: "done",
             currentQuery: null,
-            findingCount: parsed.data.finding_count ?? prev.findingCount,
+            findingCount: fc ?? prev.findingCount,
           }));
           close();
           break;
+        }
 
-        case "error":
+        case "error": {
           stopFlush();
+          const msg = typeof parsed.data.message === "string" ? parsed.data.message : "Unknown error";
           setState((prev) => ({
             ...prev,
             phase: "error",
-            errorMessage: parsed.data.message ?? "Unknown error",
+            errorMessage: msg,
           }));
           close();
           break;
+        }
 
         default:
           break;
@@ -190,8 +199,6 @@ export function useResearchStream(
     };
 
     es.onerror = () => {
-      // EventSource will retry automatically.  Only mark error if the
-      // connection has been closed without a terminal event.
       if (es.readyState === EventSource.CLOSED) {
         setState((prev) =>
           prev.phase !== "done" && prev.phase !== "error"
@@ -204,7 +211,8 @@ export function useResearchStream(
     return () => {
       close();
     };
-  }, [jobId, apiBase, close, startFlush, stopFlush]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId, apiBase]);
 
   return state;
 }
@@ -223,8 +231,7 @@ function dedupeByUrl(sources: SourceItem[]): SourceItem[] {
 }
 
 /**
- * scrollPinned — call this inside a scroll handler or a ResizeObserver on
- * the answer container.  Returns true when the viewport should auto-scroll.
+ * isScrollPinned — returns true when the viewport should auto-scroll.
  */
 export function isScrollPinned(container: HTMLElement): boolean {
   const { scrollTop, scrollHeight, clientHeight } = container;

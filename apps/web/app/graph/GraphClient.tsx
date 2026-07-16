@@ -93,7 +93,7 @@ export default function GraphClient({
   const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const fg2dRef = useRef<ForceGraphMethods<GraphNodeDatum, GraphLinkDatum> | undefined>(undefined);
-  const fg3dRef = useRef<any>(undefined);
+  const fg3dRef = useRef<ForceGraphInstance | undefined>(undefined);
 
   const load = async () => {
     setLoading(true);

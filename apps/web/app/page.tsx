@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import ReactMarkdown from "react-markdown";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Shell from "@/components/Shell";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
+import SourcesPanel from "@/components/SourcesPanel";
 import { type Job, fetchJobs, createJob } from "@/lib/api";
-import { parseResearchStreamMessage } from "./researchStream";
+import { useResearchStream } from "./useResearchStream";
 import {
   Loader2,
   Send,
@@ -14,26 +15,12 @@ import {
   CheckCircle2,
   XCircle,
   Zap,
-  Link2,
 } from "lucide-react";
 
 type ReferenceItem = {
   title: string;
   url: string;
   snippet: string;
-};
-
-type StreamEventKind = "status" | "event" | "finding" | "error" | "done" | "default";
-
-type StreamEventItem = {
-  kind: StreamEventKind;
-  text: string;
-};
-
-type LiveFinding = {
-  index: number;
-  subQuery: string;
-  summary: string;
 };
 
 type HealthService = {
@@ -110,47 +97,19 @@ function extractReferences(job: Job | null, report: string): ReferenceItem[] {
     .map((url) => ({ title: url, url, snippet: "" }));
 }
 
-function classifyStreamEventLine(line: string) {
-  const value = String(line ?? "").trim();
-  if (!value) return "default" as const;
-  if (/^status:/i.test(value)) return "status" as const;
-  if (/^finding\b/i.test(value)) return "finding" as const;
-  if (/error|failed|exception/i.test(value)) return "error" as const;
-  if (/^done\b|report generated|completed/i.test(value)) return "done" as const;
-  return "default" as const;
-}
-
 export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [query, setQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
-  const [events, setEvents] = useState<StreamEventItem[]>([]);
-  const [hasSeenEvent, setHasSeenEvent] = useState(false);
-  const [streamReport, setStreamReport] = useState<string>("");
-  const [streamError, setStreamError] = useState<string>("");
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [health, setHealth] = useState<HealthState | null>(null);
   const [healthError, setHealthError] = useState("");
   const [refreshTick, setRefreshTick] = useState(0);
 
-  const eventsRef = useRef<HTMLDivElement>(null);
-  const sseRef = useRef<EventSource | null>(null);
-
-  const appendEvent = useCallback((kind: StreamEventKind, text: string) => {
-    const value = String(text ?? "").trim();
-    if (!value) return;
-
-    setHasSeenEvent(true);
-    setEvents((prev) => {
-      const last = prev[prev.length - 1];
-      if (last && last.kind === kind && last.text === value) return prev;
-      return [...prev, { kind, text: value }];
-    });
-  }, []);
-
+  const stream = useResearchStream(activeJobId);
 
   const loadJobs = useCallback(async () => {
     try {
@@ -218,150 +177,26 @@ export default function DashboardPage() {
   }, [startedAt, activeJobId]);
 
   useEffect(() => {
-    if (eventsRef.current) {
-      eventsRef.current.scrollTop = eventsRef.current.scrollHeight;
-    }
-  }, [events]);
-
-  useEffect(() => {
+    if (stream.phase !== "done" && stream.phase !== "error") return;
+    const id1 = window.setTimeout(() => { void loadJobs(); }, 0);
+    const id2 = window.setTimeout(() => { void loadJobs(); }, 600);
     return () => {
-      sseRef.current?.close();
+      window.clearTimeout(id1);
+      window.clearTimeout(id2);
     };
-  }, []);
+  }, [stream.phase, loadJobs]);
 
-  const openStream = useCallback((jobId: string) => {
-    if (sseRef.current) {
-      sseRef.current.close();
+  const handleOpenJob = useCallback((job: Job) => {
+    setActiveJobId(job.id);
+    if (job.status === "queued" || job.status === "running") {
+      setStartedAt(Date.now());
+    } else {
+      setStartedAt(
+        job.created_at ? new Date(job.created_at).getTime() : null,
+      );
     }
-
-    setActiveJobId(jobId);
-    setEvents([]);
-    setHasSeenEvent(false);
-    setStreamReport("");
-    setStreamError("");
-
-    const es = new EventSource(`/api/jobs/${jobId}/stream`);
-    sseRef.current = es;
-
-    es.onmessage = (e) => {
-      const raw = String(e.data ?? "").trim();
-      if (!raw) return;
-
-      if (raw === "[DONE]" || raw === "\"[DONE]\"") {
-        es.close();
-        void loadJobs().then(() => {
-          setTimeout(() => {
-            void loadJobs();
-          }, 600);
-        });
-        return;
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        setHasSeenEvent(true);
-        appendEvent("default", raw);
-        return;
-      }
-
-      const message = parseResearchStreamMessage(raw);
-      if (!message) {
-        setHasSeenEvent(true);
-        appendEvent("default", raw);
-        return;
-      }
-
-      setHasSeenEvent(true);
-
-      if (message.type === "status") {
-        const statusObj =
-          message.data && typeof message.data === "object"
-            ? (message.data as Record<string, unknown>)
-            : null;
-
-        const status =
-          String(
-            statusObj?.["status"] ??
-              message.message ??
-              "running",
-          ).trim() || "running";
-
-        const statusLine = `Status: ${status}`;
-      appendEvent(status === "done" ? "done" : "status", statusLine);
-      return;
-      }
-
-      if (message.type === "event") {
-        const text = String(message.message ?? "").trim();
-        if (text) {
-          appendEvent("event", text);
-        }
-        return;
-      }
-
-      if (message.type === "report") {
-        // full report goes to the report pane, not the event log
-        setStreamReport(String(message.content ?? ""));
-        return;
-      }
-
-      if (message.type === "error") {
-        const text = String(message.message ?? "Unknown error").trim();
-        setStreamError(text);
-      appendEvent("error", text);
-      return;
-      }
-
-      if (message.type === "finding" && message.data) {
-        const findingData = message.data as Record<string, unknown>;
-        const index = Number(findingData["index"] ?? 0);
-        const subQuery = String(findingData["sub_query"] ?? "").trim();
-        const summary = String(findingData["summary"] ?? "").trim();
-
-        const normalizedSummary = summary.replace(/\s+/g, " ").trim();
-        const summarySnippet =
-          normalizedSummary.length > 120
-            ? `${normalizedSummary.slice(0, 117).trimEnd()}...`
-            : normalizedSummary;
-
-        const lineParts: string[] = [];
-
-        if (index > 0) {
-          lineParts.push(`Finding ${index}`);
-        } else {
-          lineParts.push("Finding");
-        }
-
-        if (subQuery) {
-          lineParts.push("– " + subQuery);
-        }
-
-        if (summarySnippet) {
-          lineParts.push("– " + summarySnippet);
-        }
-
-        const findingLine = lineParts.join(" ");
-        if (findingLine) {
-          appendEvent("finding", findingLine);
-        }
-        return;
-      }
-
-      // fallback: last resort when we have an unrecognized shape
-      appendEvent("default", raw);
-    };
-
-    es.onerror = () => {
-      es.close();
-      void loadJobs().then(() => {
-        setTimeout(() => {
-          void loadJobs();
-        }, 600);
-      });
-    };
-  }, [loadJobs]);
+    setSubmitError("");
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -373,10 +208,11 @@ export default function DashboardPage() {
     try {
       const job = await createJob(query.trim());
       setQuery("");
-      openStream(job.id);
+      setActiveJobId(job.id);
+      setStartedAt(Date.now());
       await loadJobs();
     } catch (err) {
-      setStreamError(err instanceof Error ? err.message : String(err));
+      setSubmitError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
@@ -387,15 +223,15 @@ export default function DashboardPage() {
     [jobs, activeJobId],
   );
 
-  const report = activeJob?.report ?? streamReport;
-  const error = activeJob?.error ?? streamError;
+  const report =
+    stream.text ||
+    activeJob?.report ||
+    "";
 
-
-  const isActiveJobRunning = Boolean(
-    startedAt &&
-    activeJob &&
-    (activeJob.status === "queued" || activeJob.status === "running"),
-  );
+  const error =
+    stream.errorMessage ||
+    activeJob?.error ||
+    submitError;
 
   const elapsedMs = startedAt ? Math.max(0, now - startedAt) : 0;
 
@@ -403,6 +239,8 @@ export default function DashboardPage() {
     () => extractReferences(activeJob, report),
     [activeJob, report],
   );
+
+  const liveReferenceCount = stream.sources.length || references.length;
 
   return (
     <Shell>
@@ -428,11 +266,11 @@ export default function DashboardPage() {
             },
             ...["ollama", "searxng", "neo4j", "valkey"].map((name) => {
               const raw = health?.services?.find((service) => service.name === name);
-            const value =
-              raw?.status ??
-              (typeof raw?.ok === "boolean"
-                ? (raw.ok ? "healthy" : "unhealthy")
-                : "unknown");
+              const value =
+                raw?.status ??
+                (typeof raw?.ok === "boolean"
+                  ? (raw.ok ? "healthy" : "unhealthy")
+                  : "unknown");
               return {
                 label: name,
                 value,
@@ -494,6 +332,7 @@ export default function DashboardPage() {
             Health endpoint unavailable: {healthError}
           </div>
         )}
+
         <h1
           style={{
             fontSize: "1.5rem",
@@ -556,7 +395,14 @@ export default function DashboardPage() {
           </button>
         </form>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1.5rem", alignItems: "start" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "1.5rem",
+            alignItems: "start",
+          }}
+        >
           <div style={{ minWidth: 0 }}>
             <h2
               style={{
@@ -581,18 +427,7 @@ export default function DashboardPage() {
               {jobs.map((job) => (
                 <button
                   key={job.id}
-                  onClick={() => {
-                    setActiveJobId(job.id);
-                    setEvents([]);
-                    setStreamReport(job.report ?? "");
-                    setStreamError(job.error ?? "");
-                    if (job.status === "queued" || job.status === "running") {
-                      openStream(job.id);
-                    } else {
-                      sseRef.current?.close();
-                      setStartedAt(null);
-                    }
-                  }}
+                  onClick={() => handleOpenJob(job)}
                   style={{
                     display: "flex",
                     alignItems: "flex-start",
@@ -656,9 +491,10 @@ export default function DashboardPage() {
                     fontSize: "0.82rem",
                   }}
                 >
-                  <span>Status: {activeJob?.status ?? "unknown"}</span>
+                  <span>Status: {stream.phase !== "idle" ? stream.phase : (activeJob?.status ?? "unknown")}</span>
                   <span>Elapsed: {formatElapsed(elapsedMs)}</span>
-                  <span>Refs: {references.length}</span>
+                  <span>Refs: {liveReferenceCount}</span>
+                  {stream.currentQuery && <span>Searching: {stream.currentQuery}</span>}
                 </div>
 
                 <div
@@ -747,9 +583,16 @@ export default function DashboardPage() {
                   </Link>
                 </div>
 
-                {(events.length > 0 || activeJob?.status === "running" || activeJob?.status === "queued") && (
-                  <div>
-                    <h2
+                {(stream.phase !== "idle" || activeJob?.status === "running" || activeJob?.status === "queued") && (
+                  <div
+                    style={{
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: "var(--radius-lg)",
+                      padding: "0.875rem 1rem",
+                    }}
+                  >
+                    <div
                       style={{
                         fontSize: "0.8rem",
                         fontWeight: 600,
@@ -760,106 +603,39 @@ export default function DashboardPage() {
                       }}
                     >
                       Live Stream
-                    </h2>
-                    <div
-                      ref={eventsRef}
-                      style={{
-                        background: "var(--color-surface)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: "var(--radius-lg)",
-                        padding: "0.875rem 1rem",
-                        maxHeight: "180px",
-                        overflowY: "auto",
-                        fontFamily: "ui-monospace, monospace",
-                        fontSize: "0.8rem",
-                        lineHeight: 1.6,
-                        color: "var(--color-text-muted)",
-                      }}
-                    >
-                      {!hasSeenEvent && <span style={{ opacity: 0.5 }}>Waiting for events…</span>}
-                      {events.map((ev, i) => {
-                      const kind = ev.kind;
-
-                      const tone =
-                        kind === "status"
-                          ? {
-                              bullet: "var(--color-blue)",
-                              text: "var(--color-text)",
-                              background: "rgba(59,130,246,0.08)",
-                              border: "rgba(59,130,246,0.18)",
-                              weight: 600,
-                            }
-                          : kind === "finding"
-                            ? {
-                                bullet: "var(--color-primary)",
-                                text: "var(--color-text)",
-                                background: "rgba(16,185,129,0.08)",
-                                border: "rgba(16,185,129,0.18)",
-                                weight: 500,
-                              }
-                            : kind === "error"
-                              ? {
-                                  bullet: "#fda4af",
-                                  text: "#fecdd3",
-                                  background: "rgba(127,29,29,0.22)",
-                                  border: "rgba(248,113,113,0.25)",
-                                  weight: 600,
-                                }
-                              : kind === "done"
-                                ? {
-                                    bullet: "#c4b5fd",
-                                    text: "var(--color-text)",
-                                    background: "rgba(139,92,246,0.10)",
-                                    border: "rgba(139,92,246,0.22)",
-                                    weight: 600,
-                                  }
-                                : {
-                                    bullet: "var(--color-text-muted)",
-                                    text: "var(--color-text-muted)",
-                                    background: "transparent",
-                                    border: "transparent",
-                                    weight: 400,
-                                  };
-
-                      return (
-                        <div
-                          key={i}
-                          style={{
-                            display: "flex",
-                            alignItems: "flex-start",
-                            gap: "0.5rem",
-                            marginBottom: "0.375rem",
-                            padding: "0.375rem 0.5rem",
-                            borderRadius: "0.625rem",
-                            background: tone.background,
-                            border: `1px solid ${tone.border}`,
-                            color: tone.text,
-                            fontWeight: tone.weight,
-                          }}
-                        >
-                          <span
-                            style={{
-                              color: tone.bullet,
-                              flex: "0 0 auto",
-                              lineHeight: 1.6,
-                            }}
-                          >
-                            ›
-                          </span>
-                          <span
-                            style={{
-                              whiteSpace: "pre-wrap",
-                              wordBreak: "break-word",
-                              flex: 1,
-                            }}
-                          >
-                            {ev.text}
-                          </span>
+                    </div>
+                    <div style={{ display: "grid", gap: "0.45rem", fontSize: "0.86rem" }}>
+                      <div style={{ color: "var(--color-text)" }}>
+                        Phase: <strong>{stream.phase}</strong>
+                      </div>
+                      {stream.currentQuery && (
+                        <div style={{ color: "var(--color-text-muted)" }}>
+                          Searching: {stream.currentQuery}
                         </div>
-                      );
-                    })}
+                      )}
+                      {stream.phase === "generating" && (
+                        <div style={{ color: "var(--color-primary)", fontWeight: 600 }}>
+                          Synthesizing live answer…
+                        </div>
+                      )}
+                      {stream.findingCount !== null && (
+                        <div style={{ color: "var(--color-text-muted)" }}>
+                          Findings: {stream.findingCount}
+                        </div>
+                      )}
                     </div>
                   </div>
+                )}
+
+                {stream.sources.length > 0 && (
+                  <SourcesPanel
+                    title="Live Sources"
+                    sources={stream.sources.map((s) => ({
+                      title: s.title,
+                      url: s.url,
+                      snippet: "",
+                    }))}
+                  />
                 )}
 
                 {error && (
@@ -898,79 +674,17 @@ export default function DashboardPage() {
                         borderRadius: "var(--radius-lg)",
                         padding: "1.5rem",
                         lineHeight: 1.75,
-                        fontSize: "0.9375rem",
+                        color: "var(--color-text)",
                       }}
                     >
-                      <ReactMarkdown>{report}</ReactMarkdown>
+                      <MarkdownRenderer content={report} />
                     </div>
                   </div>
                 )}
 
-                <div>
-                  <h2
-                    style={{
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.06em",
-                      color: "var(--color-text-muted)",
-                      marginBottom: "0.5rem",
-                    }}
-                  >
-                    References
-                  </h2>
-                  <div
-                    style={{
-                      background: "var(--color-surface)",
-                      border: "1px solid var(--color-border)",
-                      borderRadius: "var(--radius-lg)",
-                      padding: "1rem",
-                    }}
-                  >
-                    {references.length === 0 ? (
-                      <p style={{ color: "var(--color-text-muted)", fontSize: "0.875rem" }}>
-                        No references surfaced for this job yet.
-                      </p>
-                    ) : (
-                      <div style={{ display: "grid", gap: "0.75rem" }}>
-                        {references.map((ref, idx) => (
-                          <a
-                            key={`${ref.url}-${idx}`}
-                            href={ref.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              display: "block",
-                              padding: "0.75rem 0.875rem",
-                              background: "var(--color-surface-2)",
-                              border: "1px solid var(--color-border)",
-                              borderRadius: "var(--radius-md)",
-                              color: "var(--color-text)",
-                              textDecoration: "none",
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
-                              <Link2 size={14} style={{ color: "var(--color-primary)" }} />
-                              <span style={{ fontSize: "0.9rem", fontWeight: 600, lineHeight: 1.4 }}>
-                                {ref.title}
-                              </span>
-                            </div>
-                            {ref.url && (
-                              <div style={{ color: "var(--color-text-muted)", fontSize: "0.8rem", wordBreak: "break-all" }}>
-                                {ref.url}
-                              </div>
-                            )}
-                            {ref.snippet && (
-                              <div style={{ color: "var(--color-text-muted)", fontSize: "0.82rem", marginTop: "0.35rem" }}>
-                                {ref.snippet}
-                              </div>
-                            )}
-                          </a>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                {references.length > 0 && (
+                  <SourcesPanel title="References" sources={references} />
+                )}
               </>
             )}
           </div>
