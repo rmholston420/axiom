@@ -64,7 +64,7 @@ class WikiPageResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("/pages", response_model=list[WikiPageStubResponse])
-async def list_pages(request: Any, limit: int = 100) -> list[WikiPageStubResponse]:
+async def list_pages(request: Request, limit: int = 100) -> list[WikiPageStubResponse]:
     """Return stubs for all wiki pages, newest first."""
     gen = _get_generator(request)
     rows = await gen.list_pages(limit=limit)
@@ -72,7 +72,7 @@ async def list_pages(request: Any, limit: int = 100) -> list[WikiPageStubRespons
 
 
 @router.get("/pages/{page_id:path}", response_model=WikiPageResponse)
-async def get_page(page_id: str, request: Any) -> WikiPageResponse:
+async def get_page(page_id: str, request: Request) -> WikiPageResponse:
     """Return full page data including rendered markdown."""
     gen = _get_generator(request)
     data = await gen.get_page(page_id)
@@ -82,7 +82,7 @@ async def get_page(page_id: str, request: Any) -> WikiPageResponse:
 
 
 @router.post("/generate/query/{query_id}", response_model=WikiPageStubResponse)
-async def generate_query_page(query_id: str, request: Any) -> WikiPageStubResponse:
+async def generate_query_page(query_id: str, request: Request) -> WikiPageStubResponse:
     """Trigger regeneration of a topic page from a Query node."""
     gen = _get_generator(request)
     try:
@@ -100,7 +100,7 @@ async def generate_query_page(query_id: str, request: Any) -> WikiPageStubRespon
 
 
 @router.post("/generate/axiom/{axiom_id}", response_model=WikiPageStubResponse)
-async def generate_axiom_page(axiom_id: str, request: Any) -> WikiPageStubResponse:
+async def generate_axiom_page(axiom_id: str, request: Request) -> WikiPageStubResponse:
     """Trigger regeneration of an Axiom page."""
     gen = _get_generator(request)
     try:
@@ -118,7 +118,7 @@ async def generate_axiom_page(axiom_id: str, request: Any) -> WikiPageStubRespon
 
 
 @router.post("/generate/source", response_model=WikiPageStubResponse)
-async def generate_source_page(body: SourcePageRequest, request: Any) -> WikiPageStubResponse:
+async def generate_source_page(body: SourcePageRequest, request: Request) -> WikiPageStubResponse:
     """Trigger regeneration of a Source page."""
     gen = _get_generator(request)
     try:
@@ -136,7 +136,7 @@ async def generate_source_page(body: SourcePageRequest, request: Any) -> WikiPag
 
 
 @router.delete("/pages/{page_id:path}", status_code=204, response_class=Response)
-async def delete_page(page_id: str, request: Any) -> Response:
+async def delete_page(page_id: str, request: Request) -> Response:
     """Remove a wiki page from the graph."""
     gen = _get_generator(request)
     await gen.delete_page(page_id)
