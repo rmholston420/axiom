@@ -200,8 +200,8 @@ export default function DashboardPage() {
   }, []);
 
   const openStream = useCallback((jobId: string) => {
-    if (streamRef.current) {
-      streamRef.current.close();
+    if (sseRef.current) {
+      sseRef.current.close();
     }
 
     setActiveJobId(jobId);
@@ -212,7 +212,7 @@ export default function DashboardPage() {
     setLiveFindings([]);
 
     const es = new EventSource(`/api/jobs/${jobId}/stream`);
-    streamRef.current = es;
+    sseRef.current = es;
 
     es.onmessage = (e) => {
       const data = e.data;
