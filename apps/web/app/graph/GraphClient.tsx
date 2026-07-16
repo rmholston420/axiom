@@ -312,9 +312,16 @@ export default function GraphClient({
               }
 
               // Node circle
+              const nodeFill =
+                !isActive
+                  ? "rgba(148, 163, 184, 0.35)"
+                  : isSourceNode && !isFocused
+                    ? "rgba(218, 113, 1, 0.55)"
+                    : color;
+
               ctx.beginPath();
               ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
-              ctx.fillStyle = isActive ? color : "rgba(148, 163, 184, 0.35)";
+              ctx.fillStyle = nodeFill;
               ctx.fill();
 
               // Only draw labels when zoomed in enough to avoid clutter.
