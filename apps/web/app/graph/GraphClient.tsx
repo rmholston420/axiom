@@ -300,10 +300,14 @@ export default function GraphClient({
               // Halo for focused node
               if (isFocused) {
                 const haloRadius = radius + 5;
+                const haloStroke =
+                  isSourceNode
+                    ? "rgba(251, 191, 36, 0.9)"
+                    : "rgba(248, 250, 252, 0.75)";
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, haloRadius, 0, 2 * Math.PI, false);
-                ctx.strokeStyle = "rgba(248, 250, 252, 0.75)";
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = haloStroke;
+                ctx.lineWidth = isSourceNode ? 2.5 : 2;
                 ctx.stroke();
               }
 
