@@ -12,6 +12,7 @@ from neo4j import AsyncGraphDatabase
 from axiom_core.settings import settings
 from axiom_providers.valkey import ValkeyProvider
 from axiom_research.queue_worker import JobStore, QueueWorker
+from axiom_wiki.wiki_generator import WikiGenerator
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +32,11 @@ async def lifespan(app: FastAPI):
     worker_task = asyncio.create_task(worker.run_forever())
 
     app.state.driver = driver
+    app.state.wiki_generator = WikiGenerator(
+        driver=driver,
+        ollama_base_url=settings.axiom_ollama_base_url,
+        model=settings.axiom_model_synthesizer,
+    )
     app.state.valkey = valkey
     app.state.job_store = JobStore(valkey)
     app.state.worker = worker

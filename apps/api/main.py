@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI
 
 from apps.api.dependencies import lifespan
-from apps.api.routers import axiomatizer, council, graph, health, jobs, observability, stream
+from apps.api.routers import axiomatizer, council, graph, health, jobs, observability, stream, wiki
 from apps.api.routers import models as models_router
 from apps.api.routers import settings as settings_router
 
@@ -27,6 +27,7 @@ app.include_router(models_router.router)
 app.include_router(graph.router)
 app.include_router(council.router)
 app.include_router(axiomatizer.router)
+app.include_router(wiki.router)
 
 
 @app.get("/")
