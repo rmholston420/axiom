@@ -189,6 +189,8 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> list[AxiomRes
     ollama = OllamaProvider()
     created_at = datetime.now(UTC).isoformat()
     proposals = await _propose_axioms(ollama, body.source_text, body.context)
+    if not proposals:
+        raise HTTPException(status_code=502, detail="No valid axioms returned by model")
 
     driver, should_close = await _get_driver(request)
     cypher = """
