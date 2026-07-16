@@ -155,6 +155,9 @@ class JobStore:
             "elapsed_seconds": None,
             "query_id": "",
             "axiom_id": "",
+            "wiki_page_id": "",
+            "wiki_status": "",
+            "wiki_error": "",
             "report": "",
             "error": "",
             "breadth": breadth,
@@ -496,9 +499,26 @@ class QueueWorker:
             )
 
             wiki_started_at = _now_dt()
+            await self._store.update(
+                job_id,
+                wiki_status="started",
+                wiki_error="",
+            )
             log.info("job=%s phase=wiki.generate.start query_id=%s", job_id, query_id)
             wiki_result = await _generate_wiki_page_for_query(query_id=str(query_id))
+            wiki_page_id = ""
+            wiki_status = "failed"
+            wiki_error = ""
+
             if isinstance(wiki_result, dict):
+                wiki_page_id = str(wiki_result.get("page_id") or "")
+                wiki_status = "done" if wiki_page_id else "failed"
+                await self._store.update(
+                    job_id,
+                    wiki_status=wiki_status,
+                    wiki_page_id=wiki_page_id,
+                    wiki_error="",
+                )
                 log.info(
                     "job=%s phase=wiki.generate.done query_id=%s elapsed_seconds=%.2f page_id=%r version=%r",
                     job_id,
@@ -508,6 +528,13 @@ class QueueWorker:
                     wiki_result.get("version"),
                 )
             else:
+                wiki_error = "wiki generation returned no page payload"
+                await self._store.update(
+                    job_id,
+                    wiki_status="failed",
+                    wiki_page_id="",
+                    wiki_error=wiki_error,
+                )
                 log.warning(
                     "job=%s phase=wiki.generate.failed query_id=%s elapsed_seconds=%.2f",
                     job_id,
@@ -542,6 +569,9 @@ class QueueWorker:
                 elapsed_seconds=elapsed,
                 completed_at=completed_at_iso,
                 axiom_id=axiom_id,
+                wiki_page_id=locals().get("wiki_page_id", ""),
+                wiki_status=locals().get("wiki_status", ""),
+                wiki_error=locals().get("wiki_error", ""),
             )
             log.info(
                 "job=%s phase=process.done finding_count=%s report_chars=%s elapsed_seconds=%.2f axiom_id=%r",
@@ -565,6 +595,9 @@ class QueueWorker:
                     "started_at": started_at_iso,
                     "completed_at": completed_at_iso,
                     "axiom_id": axiom_id,
+                    "wiki_page_id": locals().get("wiki_page_id", ""),
+                    "wiki_status": locals().get("wiki_status", ""),
+                    "wiki_error": locals().get("wiki_error", ""),
                 },
             )
 
