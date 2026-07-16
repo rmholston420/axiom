@@ -309,10 +309,13 @@ export default function GraphClient({
               ctx.fillStyle = isActive ? color : "rgba(148, 163, 184, 0.35)";
               ctx.fill();
 
-              // Only draw labels when zoomed in enough to avoid clutter
-              // Threshold: globalScale >= 1.2 shows all active nodes;
-              // focused nodes always show their label regardless of zoom.
-              const showLabel = isFocused || globalScale >= 1.2;
+              // Only draw labels when zoomed in enough to avoid clutter.
+              // Source labels are stricter: only show them when focused.
+              const nodeType = String(node.type ?? "");
+              const showLabel =
+                nodeType === "Source"
+                  ? isFocused
+                  : isFocused || globalScale >= 1.2;
               if (!showLabel) return;
 
               const label = String(node.label ?? node.id ?? "node");
