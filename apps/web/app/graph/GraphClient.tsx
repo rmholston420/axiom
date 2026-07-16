@@ -285,12 +285,14 @@ export default function GraphClient({
             onNodeClick={(node: GraphNodeDatum) => setSelectedNodeId(node?.id != null ? String(node.id) : null)}
             nodeCanvasObject={(node: GraphNodeDatum, ctx: CanvasRenderingContext2D, globalScale: number) => {
               const nodeId = String(node.id ?? "");
-              const isActive = neighborIds.size === 0 || neighborIds.has(nodeId);
-              const color = nodeColorMap[String(node.type ?? "")] ?? "#888";
-              if (node.x == null || node.y == null) return;
-              const fontSize = Math.max(10, 12 / globalScale);
-              ctx.beginPath();
-              ctx.arc(node.x, node.y, isActive ? 7 : 5.5, 0, 2 * Math.PI, false);
+            const isActive = neighborIds.size === 0 || neighborIds.has(nodeId);
+            const color = nodeColorMap[String(node.type ?? "")] ?? "#888";
+            const isFocused = hoverNodeId === nodeId || selectedNodeId === nodeId;
+            if (node.x == null || node.y == null) return;
+            const fontSize = Math.max(10, 12 / globalScale);
+            const radius = isFocused ? (isActive ? 9 : 7.5) : (isActive ? 7 : 5.5);
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
               ctx.fillStyle = isActive ? color : "rgba(148, 163, 184, 0.35)";
               ctx.fill();
               ctx.font = `${fontSize}px sans-serif`;
@@ -337,8 +339,17 @@ export default function GraphClient({
           />
         ) : (
           <ForceGraph3D
-            ref={fg3dRef}
-            graphData={graphData}
+           ref={fg3dRef}
+           graphData={graphData}
+           nodeVal={(node: GraphNodeDatum) => {
+             const id = String(node.id);
+             const isFocused = hoverNodeId === id || selectedNodeId === id;
+             const inDenseNeighborhood = neighborIds.has(id);
+
+             if (isFocused && inDenseNeighborhood) return 9;
+             if (isFocused) return 7.2;
+             return inDenseNeighborhood ? 5.8 : 4.6;
+           }}
             linkCurvature={(link: ForceLinkObject) => {
             const sourceId = getLinkEndpointId(link.source);
             const targetId = getLinkEndpointId(link.target);
