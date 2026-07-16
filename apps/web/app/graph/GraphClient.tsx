@@ -377,7 +377,7 @@ export default function GraphClient({
              const halo = new THREE.Mesh(haloGeometry, haloMaterial);
              halo.scale.setScalar(6);
              return halo;
-           }
+           }}
            nodeThreeObjectExtend={true}
             linkCurvature={(link: ForceLinkObject) => {
             const sourceId = getLinkEndpointId(link.source);
