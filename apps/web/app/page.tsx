@@ -214,9 +214,10 @@ export default function DashboardPage() {
     sseRef.current = es;
 
     es.onmessage = (e) => {
-      const data = e.data;
+      const raw = String(e.data ?? "").trim();
+      if (!raw) return;
 
-      if (data === "[DONE]" || data === "\"[DONE]\"") {
+      if (raw === "[DONE]" || raw === "\"[DONE]\"") {
         es.close();
         void loadJobs().then(() => {
           setTimeout(() => {
@@ -226,85 +227,98 @@ export default function DashboardPage() {
         return;
       }
 
-      const parsed = parseResearchStreamMessage(data);
-
-      if (parsed) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
         setHasSeenEvent(true);
+        setEvents((prev) => [...prev, raw]);
+        return;
+      }
 
-        if (parsed.type === "event") {
-          const message = String(parsed.message ?? "").trim();
-          if (message) {
-            setEvents((prev) => [...prev, message]);
-          }
-          return;
-        }
+      const message = parseResearchStreamMessage(parsed);
+      if (!message) {
+        setHasSeenEvent(true);
+        setEvents((prev) => [...prev, raw]);
+        return;
+      }
 
-        if (parsed.type === "report") {
-          setStreamReport(String(parsed.content ?? ""));
-          return;
-        }
+      setHasSeenEvent(true);
 
-        if (parsed.type === "error") {
-          const message = String(parsed.message ?? "Unknown error");
-          setStreamError(message);
-          setEvents((prev) => [...prev, message]);
-          return;
-        }
+      if (message.type === "status") {
+        const statusObj =
+          message.data && typeof message.data === "object"
+            ? (message.data as Record<string, unknown>)
+            : null;
 
-        if (parsed.type === "status") {
-          const statusData =
-            parsed.data && typeof parsed.data === "object"
-              ? (parsed.data as Record<string, unknown>)
-              : null;
+        const status =
+          String(
+            statusObj?.["status"] ??
+              message.message ??
+              "running",
+          ).trim() || "running";
 
-          const status =
-            String(
-              statusData?.["status"] ??
-                parsed.message ??
-                "running",
-            ).trim() || "running";
+        const statusLine = `Status: ${status}`;
+        setEvents((prev) =>
+          prev[prev.length - 1] === statusLine ? prev : [...prev, statusLine],
+        );
+        return;
+      }
 
-          const message = `Status: ${status}`;
-          setEvents((prev) =>
-            prev[prev.length - 1] === message ? prev : [...prev, message],
-          );
-          return;
-        }
-
-        if (parsed.type === "finding" && parsed.data) {
-          const findingData = parsed.data as Record<string, unknown>;
-          const finding = {
-            index: Number(findingData["index"] ?? 0),
-            sub_query: String(findingData["sub_query"] ?? ""),
-            summary: String(findingData["summary"] ?? ""),
-          };
-
-          const findingMessage = [
-            finding.index ? `Finding ${finding.index}:` : "Finding:",
-            finding.sub_query,
-            finding.summary,
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          if (findingMessage) {
-            setEvents((prev) => [...prev, findingMessage]);
-          }
-          return;
-        }
-
-        const fallback = String(data).trim();
-        if (fallback) {
-          setEvents((prev) => [...prev, fallback]);
+      if (message.type === "event") {
+        const text = String(message.message ?? "").trim();
+        if (text) {
+          setEvents((prev) => [...prev, text]);
         }
         return;
       }
 
-      const fallback = String(data).trim();
-      if (fallback) {
-        setHasSeenEvent(true);
-        setEvents((prev) => [...prev, fallback]);
+      if (message.type === "report") {
+        // full report goes to the report pane, not the event log
+        setStreamReport(String(message.content ?? ""));
+        return;
       }
+
+      if (message.type === "error") {
+        const text = String(message.message ?? "Unknown error").trim();
+        setStreamError(text);
+        if (text) {
+          setEvents((prev) => [...prev, text]);
+        }
+        return;
+      }
+
+      if (message.type === "finding" && message.data) {
+        const findingData = message.data as Record<string, unknown>;
+        const index = Number(findingData["index"] ?? 0);
+        const subQuery = String(findingData["sub_query"] ?? "").trim();
+        const summary = String(findingData["summary"] ?? "").trim();
+
+        const lineParts: string[] = [];
+
+        if (index > 0) {
+          lineParts.push(`Finding ${index}`);
+        } else {
+          lineParts.push("Finding");
+        }
+
+        if (subQuery) {
+          lineParts.push("– " + subQuery);
+        }
+
+        if (summary) {
+          lineParts.push(summary);
+        }
+
+        const findingLine = lineParts.join(" ");
+        if (findingLine) {
+          setEvents((prev) => [...prev, findingLine]);
+        }
+        return;
+      }
+
+      // fallback: last resort when we have an unrecognized shape
+      setEvents((prev) => [...prev, raw]);
     };
 
     es.onerror = () => {
