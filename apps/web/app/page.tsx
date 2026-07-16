@@ -207,8 +207,8 @@ export default function DashboardPage() {
     setActiveJobId(jobId);
     setEvents([]);
     setHasSeenEvent(false);
-    setLiveReport("");
-    setLiveError("");
+    setStreamReport("");
+    setStreamError("");
     setLiveFindings([]);
 
     const es = new EventSource(`/api/jobs/${jobId}/stream`);
@@ -241,13 +241,13 @@ export default function DashboardPage() {
         }
 
         if (parsed.type === "report") {
-          setLiveReport(String(parsed.content ?? ""));
+          setStreamReport(String(parsed.content ?? ""));
           return;
         }
 
         if (parsed.type === "error") {
           const message = String(parsed.message ?? "Unknown error");
-          setLiveError(message);
+          setStreamError(message);
           setEvents((prev) => [...prev, message]);
           return;
         }
