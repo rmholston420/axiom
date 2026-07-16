@@ -373,8 +373,8 @@ export default function DashboardPage() {
     try {
       const job = await createJob(query.trim());
       setQuery("");
-      await loadJobs();
       openStream(job.id);
+      await loadJobs();
     } catch (err) {
       setStreamError(err instanceof Error ? err.message : String(err));
     } finally {
