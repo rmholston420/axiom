@@ -6,6 +6,7 @@ import Shell from "@/components/Shell";
 import { fetchAxioms, fetchGraph, type AxiomRecord, type GraphData } from "@/lib/api";
 import { RefreshCw, Loader2, Box, Orbit } from "lucide-react";
 import type { ForceGraphMethods } from "react-force-graph-2d";
+import * as THREE from "three";
 
 const ForceGraph2D = dynamic(
   () => import("react-force-graph-2d").then((mod) => mod.default),
@@ -359,6 +360,23 @@ export default function GraphClient({
              if (isFocused && inDenseNeighborhood) return 9;
              if (isFocused) return 7.2;
              return inDenseNeighborhood ? 5.8 : 4.6;
+           }}
+           nodeThreeObjectExtend={(node: GraphNodeDatum, obj: THREE.Object3D) => {
+             const id = String(node.id);
+             const isFocused = hoverNodeId === id || selectedNodeId === id;
+             if (!isFocused) return;
+
+             const haloGeometry = new THREE.SphereGeometry(1.35, 16, 16);
+             const haloMaterial = new THREE.MeshBasicMaterial({
+               color: 0xf8fafc,
+               transparent: true,
+               opacity: 0.22,
+               depthWrite: false,
+               side: THREE.BackSide,
+             });
+             const halo = new THREE.Mesh(haloGeometry, haloMaterial);
+             halo.scale.setScalar(6);
+             obj.add(halo);
            }}
             linkCurvature={(link: ForceLinkObject) => {
             const sourceId = getLinkEndpointId(link.source);
