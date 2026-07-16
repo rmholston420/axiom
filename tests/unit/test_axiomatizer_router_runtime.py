@@ -77,11 +77,13 @@ async def test_propose_axioms_success():
 
     result = await ax_router._propose_axioms(ollama, "source text", "ctx")
 
-    assert result == {
-        "statement": "A implies B",
-        "justification": "because",
-        "confidence": 0.75,
-    }
+    assert result == [
+        {
+            "statement": "A implies B",
+            "justification": "because",
+            "confidence": 0.75,
+        }
+    ]
 
 
 @pytest.mark.unit
@@ -183,7 +185,7 @@ def test_run_axiomatizer_empty_statement_returns_502(monkeypatch):
     )
 
     assert response.status_code == 502
-    assert "empty statement" in response.json()["detail"]
+    assert "No valid axioms returned" in response.json()["detail"]
 
 
 @pytest.mark.unit
@@ -260,7 +262,7 @@ def test_run_axiomatizer_success_with_standalone_driver(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
     assert payload[0]["label"] == "custom label"
-    assert payload["confidence"] == 0.7
+    assert payload[0]["confidence"] == 0.7
     assert driver.closed is True
     assert len(driver.session_obj.run_calls) == 1
 
