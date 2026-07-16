@@ -1,4 +1,4 @@
-"""Axiomatizer endpoint — propose, evaluate, and persist an Axiom node in Neo4j."""
+"""Axiomatizer endpoint — propose, evaluate, and persist Axiom nodes in Neo4j."""
 
 from __future__ import annotations
 
@@ -7,8 +7,9 @@ import logging
 import re
 import uuid
 from datetime import UTC, datetime
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from pydantic import BaseModel, Field
 
@@ -26,6 +27,12 @@ class AxiomRequest(BaseModel):
     label: str = ""
 
 
+class ProposedAxiom(BaseModel):
+    statement: str
+    justification: str
+    confidence: float = 0.5
+
+
 class AxiomResponse(BaseModel):
     axiom_id: str
     label: str
@@ -40,9 +47,11 @@ class AxiomResponse(BaseModel):
 
 
 _SYSTEM_PROPOSE = (
-    "You are the Axiom Axiomatizer. Distill the input into a precise, falsifiable axiom. "
-    "Return strict JSON only with keys statement, justification, confidence. "
-    "confidence must be a number from 0.0 to 1.0."
+    "You are the Axiom Axiomatizer. Distill the input into 3 to 7 precise, distinct, falsifiable axioms. "
+    "Return strict JSON only with one top-level key axioms. "
+    "axioms must be an array of objects, and each object must contain keys statement, justification, confidence. "
+    "confidence must be a number from 0.0 to 1.0. "
+    "Avoid duplicates, near-duplicates, vague summaries, and trivial restatements."
 )
 
 _SYSTEM_EVALUATE = (
@@ -71,7 +80,46 @@ def _extract_json_object(raw: str) -> dict:
         return json.loads(match.group(0))
 
 
-async def _propose_axiom(ollama: OllamaProvider, source_text: str, context: str) -> dict:
+def _coerce_axiom_list(data: dict) -> list[dict]:
+    items = data.get("axioms")
+    if not isinstance(items, list):
+        single_statement = str(data.get("statement", "")).strip()
+        if single_statement:
+            items = [data]
+        else:
+            items = []
+
+    axioms: list[dict] = []
+    seen: set[str] = set()
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        statement = str(item.get("statement", "")).strip()
+        justification = str(item.get("justification", "")).strip()
+        if not statement:
+            continue
+        key = statement.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            confidence = float(item.get("confidence", 0.5))
+        except Exception:
+            confidence = 0.5
+        confidence = max(0.0, min(1.0, confidence))
+        axioms.append(
+            {
+                "statement": statement,
+                "justification": justification,
+                "confidence": confidence,
+            }
+        )
+
+    return axioms
+
+
+async def _propose_axioms(ollama: OllamaProvider, source_text: str, context: str) -> list[dict]:
     prompt = f"Source text:\n{source_text}"
     if context:
         prompt += f"\n\nAdditional context:\n{context}"
@@ -82,11 +130,10 @@ async def _propose_axiom(ollama: OllamaProvider, source_text: str, context: str)
     )
     try:
         data = _extract_json_object(raw)
-        return {
-            "statement": str(data.get("statement", "")).strip(),
-            "justification": str(data.get("justification", "")).strip(),
-            "confidence": float(data.get("confidence", 0.5)),
-        }
+        axioms = _coerce_axiom_list(data)
+        if not axioms:
+            raise ValueError("No valid axioms returned")
+        return axioms
     except Exception as exc:
         log.warning("Axiomatizer propose parse error: %s | raw=%r", exc, raw[:500])
         raise HTTPException(status_code=502, detail=f"Unparseable axiomatizer JSON: {raw[:300]}")
@@ -131,8 +178,8 @@ async def _get_driver(request: Optional[Request]) -> tuple[AsyncDriver, bool]:
     return driver, True
 
 
-@router.post("", response_model=AxiomResponse)
-async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse:
+@router.post("", response_model=list[AxiomResponse])
+async def run_axiomatizer(body: AxiomRequest, request: Request) -> list[AxiomResponse]:
     if not settings.axiom_axiomatizer_enabled:
         raise HTTPException(
             status_code=503,
@@ -141,22 +188,8 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
 
     ollama = OllamaProvider()
     created_at = datetime.now(UTC).isoformat()
-    axiom_id = str(uuid.uuid4())
+    proposals = await _propose_axioms(ollama, body.source_text, body.context)
 
-    proposal = await _propose_axiom(ollama, body.source_text, body.context)
-    statement = proposal["statement"]
-    justification = proposal["justification"]
-    confidence = proposal["confidence"]
-
-    if not statement:
-        raise HTTPException(status_code=502, detail="Axiomatizer returned an empty statement.")
-
-    evaluation = await _evaluate_axiom(ollama, statement, justification)
-    approved = evaluation["approved"]
-    eval_reason = evaluation["reason"]
-    evaluation_warning = bool(evaluation.get("evaluation_warning", False))
-
-    label = body.label or statement[:60]
     driver, should_close = await _get_driver(request)
     cypher = """
     MERGE (a:Axiom {id: $id})
@@ -179,36 +212,57 @@ async def run_axiomatizer(body: AxiomRequest, request: Request) -> AxiomResponse
         a.evaluation_warning = $evaluation_warning
     RETURN a.id AS id
     """
+
+    responses: list[AxiomResponse] = []
     try:
         async with driver.session() as session:
-            await session.run(
-                cypher,
-                id=axiom_id,
-                label=label,
-                statement=statement,
-                justification=justification,
-                confidence=float(confidence),
-                approved=approved,
-                eval_reason=eval_reason,
-                evaluation_warning=evaluation_warning,
-                created_at=created_at,
-            )
+            for idx, proposal in enumerate(proposals, start=1):
+                statement = proposal["statement"]
+                justification = proposal["justification"]
+                confidence = float(proposal["confidence"])
+
+                evaluation = await _evaluate_axiom(ollama, statement, justification)
+                approved = evaluation["approved"]
+                eval_reason = evaluation["reason"]
+                evaluation_warning = bool(evaluation.get("evaluation_warning", False))
+
+                axiom_id = str(uuid.uuid4())
+                label = body.label or statement[:60]
+                if body.label and len(proposals) > 1:
+                    label = f"{body.label} #{idx}"
+
+                await session.run(
+                    cypher,
+                    id=axiom_id,
+                    label=label,
+                    statement=statement,
+                    justification=justification,
+                    confidence=confidence,
+                    approved=approved,
+                    eval_reason=eval_reason,
+                    evaluation_warning=evaluation_warning,
+                    created_at=created_at,
+                )
+
+                responses.append(
+                    AxiomResponse(
+                        axiom_id=axiom_id,
+                        label=label,
+                        statement=statement,
+                        justification=justification,
+                        confidence=confidence,
+                        approved=approved,
+                        eval_reason=eval_reason,
+                        evaluation_warning=evaluation_warning,
+                        created_at=created_at,
+                        persisted=True,
+                    )
+                )
     finally:
         if should_close:
             await driver.close()
 
-    return AxiomResponse(
-        axiom_id=axiom_id,
-        label=label,
-        statement=statement,
-        justification=justification,
-        confidence=confidence,
-        approved=approved,
-        eval_reason=eval_reason,
-        evaluation_warning=evaluation_warning,
-        created_at=created_at,
-        persisted=True,
-    )
+    return responses
 
 
 @router.get("/axioms")
