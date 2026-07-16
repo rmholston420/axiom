@@ -27,12 +27,12 @@ class Settings(BaseSettings):
     axiom_web_port: int = 7100
 
     # Default models
-    axiom_model_planner: str = "qwen3:14b"
-    axiom_model_synthesizer: str = "qwen3:14b"
+    axiom_model_planner: str = "deepseek-r1:14b"
+    axiom_model_synthesizer: str = "phi4:14b"
     axiom_model_code: str = "qwen2.5-coder:14b"
-    axiom_model_critic: str = "llama3.2:3b"
-    axiom_model_chairman: str = "qwen3:14b"
-    axiom_model_axiomatizer: str = "qwen3:14b"
+    axiom_model_critic: str = "llama3.1:8b"
+    axiom_model_chairman: str = "deepseek-r1:14b"
+    axiom_model_axiomatizer: str = "deepseek-r1:14b"
 
     # Runtime defaults
     axiom_breadth: int = 4
