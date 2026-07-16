@@ -1,11 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-const root = process.cwd();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const webRoot = path.resolve(__dirname, "..");
 
-const routePath = path.join(root, "apps/web/app/api/council/route.ts");
-const helperPath = path.join(root, "apps/web/lib/server-api.ts");
+const routePath = path.join(webRoot, "app/api/council/route.ts");
+const helperPath = path.join(webRoot, "lib/server-api.ts");
 
 const routeText = fs.readFileSync(routePath, "utf8");
 const helperText = fs.readFileSync(helperPath, "utf8");
